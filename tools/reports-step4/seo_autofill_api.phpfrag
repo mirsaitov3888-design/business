@@ -1,0 +1,78 @@
+        // REPORTS_STEP4_API
+        if ($action === 'seo_autofill') {
+            $project = $projectRepository->firstActive();
+
+            if (!$project) {
+                Security::json(
+                    ['error' => 'Проект не настроен.'],
+                    422
+                );
+            }
+
+            [$dateFrom, $dateTo] = validateDates(
+                trim((string) ($_GET['date1'] ?? '')),
+                trim((string) ($_GET['date2'] ?? ''))
+            );
+
+            $comparisonDateFrom = trim(
+                (string) ($_GET['comparison_date1'] ?? '')
+            );
+            $comparisonDateTo = trim(
+                (string) ($_GET['comparison_date2'] ?? '')
+            );
+
+            if (
+                ($comparisonDateFrom === '')
+                !== ($comparisonDateTo === '')
+            ) {
+                Security::json(
+                    [
+                        'error' =>
+                            'Для сравнения укажите обе даты периода.'
+                    ],
+                    422
+                );
+            }
+
+            if (
+                $comparisonDateFrom !== ''
+                && $comparisonDateTo !== ''
+            ) {
+                [$comparisonDateFrom, $comparisonDateTo] =
+                    validateDates(
+                        $comparisonDateFrom,
+                        $comparisonDateTo
+                    );
+            }
+
+            $data = (new SeoAutoFillService())->build(
+                $project,
+                $dateFrom,
+                $dateTo,
+                $comparisonDateFrom !== ''
+                    ? $comparisonDateFrom
+                    : null,
+                $comparisonDateTo !== ''
+                    ? $comparisonDateTo
+                    : null
+            );
+
+            Auth::audit(
+                'seo_report_autofilled',
+                [
+                    'project_id' => (int) $project['id'],
+                    'date_from' => $dateFrom,
+                    'date_to' => $dateTo,
+                    'comparison_date_from' =>
+                        $comparisonDateFrom ?: null,
+                    'comparison_date_to' =>
+                        $comparisonDateTo ?: null,
+                    'goal_ids' => $data['goal_ids'] ?? [],
+                ]
+            );
+
+            Security::json([
+                'data' => $data,
+            ]);
+        }
+
