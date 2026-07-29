@@ -1,0 +1,203 @@
+/* REPORTS_STEP7_CSS */
+.advertising-section-intro {
+    display: grid;
+    gap: 16px;
+    padding: 18px;
+    border: 1px solid #d8e3ff;
+    border-radius: 14px;
+    background: #f5f8ff;
+}
+
+.advertising-section-intro h3 {
+    margin: 5px 0 7px;
+    font-size: 19px;
+}
+
+.advertising-section-intro p:last-child {
+    margin-bottom: 0;
+}
+
+.advertising-autofill-controls {
+    display: grid;
+    gap: 6px;
+}
+
+.advertising-autofill-controls .button {
+    width: 100%;
+    min-height: 44px;
+}
+
+.advertising-autofill-controls small {
+    color: var(--muted);
+    text-align: center;
+}
+
+.advertising-main-indicators {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fbfcfe;
+}
+
+.advertising-main-indicators .reports-section-head {
+    margin-bottom: 0;
+}
+
+.advertising-main-kpis {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.advertising-autofill-message {
+    display: grid;
+    gap: 5px;
+    padding: 13px 15px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #f8fafc;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.advertising-autofill-message.success {
+    border-color: #a6e0bd;
+    background: #f0fdf4;
+    color: #166534;
+}
+
+.advertising-autofill-message.warning {
+    border-color: #f1d38a;
+    background: #fffbeb;
+    color: #854d0e;
+}
+
+.advertising-autofill-message.error {
+    border-color: #f3b4b4;
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.advertising-autofill-message.loading {
+    border-color: #b8cbff;
+    background: #f5f8ff;
+    color: #2859bd;
+}
+
+.advertising-autofill-message ul {
+    margin: 5px 0 0;
+    padding-left: 18px;
+}
+
+.traffic-segments-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+}
+
+.traffic-segments-list {
+    display: grid;
+    gap: 10px;
+}
+
+.traffic-segment-row {
+    display: grid;
+    grid-template-columns: minmax(180px, 1.5fr) repeat(3, minmax(110px, 1fr));
+    gap: 9px;
+    align-items: end;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+}
+
+.traffic-segment-row label {
+    display: grid;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.traffic-segment-row input {
+    min-width: 0;
+    padding: 9px 10px;
+}
+
+.traffic-segment-title,
+.traffic-segment-landing {
+    min-width: 0;
+}
+
+.report-list-item.is-active {
+    position: relative;
+    border-color: #1463ff;
+    background: #eef4ff;
+    box-shadow: 0 0 0 3px rgba(20, 99, 255, .10), 0 8px 18px rgba(16, 24, 40, .07);
+}
+
+.report-list-item.is-active::before {
+    content: '';
+    position: absolute;
+    left: -1px;
+    top: 10px;
+    bottom: 10px;
+    width: 4px;
+    border-radius: 0 4px 4px 0;
+    background: #1463ff;
+}
+
+.report-list-item.is-active .report-list-top strong {
+    color: #0f4ec7;
+}
+
+.report-rich-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.report-rich-grid > .rich-field,
+.seo-results-editor {
+    width: 100%;
+    min-width: 0;
+}
+
+.rich-editor {
+    min-height: 240px;
+    resize: vertical;
+    overflow: auto;
+}
+
+.report-preview-text-grid,
+.seo-preview-rich-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.report-preview-text {
+    min-width: 0;
+}
+
+@media (max-width: 1250px) {
+    .advertising-main-kpis {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .traffic-segment-row {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 760px) {
+    .advertising-main-kpis,
+    .traffic-segment-row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media print {
+    .advertising-section-intro,
+    .advertising-main-indicators,
+    .advertising-autofill-message {
+        display: none !important;
+    }
+}
