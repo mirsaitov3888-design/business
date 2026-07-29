@@ -1,0 +1,137 @@
+                            <!-- REPORTS_STEP3 -->
+                            <section id="seoReportEditor" class="seo-report-editor hidden">
+                                <div class="seo-section-intro">
+                                    <div>
+                                        <p class="eyebrow">SEO-шаблон</p>
+                                        <h3>Поисковая видимость, трафик и позиции</h3>
+                                        <p class="muted">Сначала оцениваем органический спрос, позиции, страницы и техническое состояние. Финансовые показатели находятся в конце отчёта.</p>
+                                    </div>
+                                </div>
+
+                                <article class="seo-editor-card">
+                                    <div class="seo-editor-head">
+                                        <div><strong>Главные показатели</strong><p class="muted">Текущий и выбранный прошлый период.</p></div>
+                                    </div>
+                                    <div class="seo-period-columns">
+                                        <div>
+                                            <h4>Текущий период</h4>
+                                            <div class="seo-metrics-grid">
+                                                <label><span>Органические визиты</span><input type="number" min="0" step="1" data-seo-metric="organic_visits"></label>
+                                                <label><span>Пользователи из поиска</span><input type="number" min="0" step="1" data-seo-metric="organic_users"></label>
+                                                <label><span>Показы в поиске</span><input type="number" min="0" step="1" data-seo-metric="search_impressions"></label>
+                                                <label><span>Клики из поиска</span><input type="number" min="0" step="1" data-seo-metric="search_clicks"></label>
+                                                <label><span>Средняя позиция</span><input type="number" min="0" step="0.01" data-seo-metric="avg_position"></label>
+                                                <label><span>Отказы, %</span><input type="number" min="0" max="100" step="0.01" data-seo-metric="bounce_rate"></label>
+                                                <label><span>Основные заявки из SEO</span><input type="number" min="0" step="1" data-seo-metric="leads"></label>
+                                                <label><span>Страницы в поиске</span><input type="number" min="0" step="1" data-seo-metric="pages_in_search"></label>
+                                                <label><span>Исключённые страницы</span><input type="number" min="0" step="1" data-seo-metric="excluded_pages"></label>
+                                                <label><span>ИКС</span><input type="number" min="0" step="1" data-seo-metric="sqi"></label>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <h4>Прошлый период</h4>
+                                            <div class="seo-metrics-grid">
+                                                <label><span>Органические визиты</span><input type="number" min="0" step="1" data-seo-comparison="organic_visits"></label>
+                                                <label><span>Пользователи из поиска</span><input type="number" min="0" step="1" data-seo-comparison="organic_users"></label>
+                                                <label><span>Показы в поиске</span><input type="number" min="0" step="1" data-seo-comparison="search_impressions"></label>
+                                                <label><span>Клики из поиска</span><input type="number" min="0" step="1" data-seo-comparison="search_clicks"></label>
+                                                <label><span>Средняя позиция</span><input type="number" min="0" step="0.01" data-seo-comparison="avg_position"></label>
+                                                <label><span>Отказы, %</span><input type="number" min="0" max="100" step="0.01" data-seo-comparison="bounce_rate"></label>
+                                                <label><span>Основные заявки из SEO</span><input type="number" min="0" step="1" data-seo-comparison="leads"></label>
+                                                <label><span>Страницы в поиске</span><input type="number" min="0" step="1" data-seo-comparison="pages_in_search"></label>
+                                                <label><span>Исключённые страницы</span><input type="number" min="0" step="1" data-seo-comparison="excluded_pages"></label>
+                                                <label><span>ИКС</span><input type="number" min="0" step="1" data-seo-comparison="sqi"></label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </article>
+
+                                <article class="seo-editor-card">
+                                    <div class="seo-editor-head">
+                                        <div><strong>Динамика органического трафика</strong><p class="muted">Строка может обозначать день, неделю или месяц.</p></div>
+                                        <button type="button" class="button" data-add-seo-row="trend">Добавить период</button>
+                                    </div>
+                                    <div id="seoTrendRows" class="seo-repeat-list"></div>
+                                </article>
+
+                                <article class="seo-editor-card">
+                                    <div class="seo-editor-head">
+                                        <div><strong>Поисковые системы</strong><p class="muted">Яндекс, Google и другие источники органического трафика.</p></div>
+                                        <button type="button" class="button" data-add-seo-row="source">Добавить источник</button>
+                                    </div>
+                                    <div id="seoSourceRows" class="seo-repeat-list"></div>
+                                </article>
+
+                                <article class="seo-editor-card">
+                                    <div class="seo-editor-head">
+                                        <div><strong>Позиции по ключевым фразам</strong><p class="muted">Главный блок SEO-отчёта: позиции, показы, клики и целевые страницы.</p></div>
+                                        <button type="button" class="button" data-add-seo-row="query">Добавить запрос</button>
+                                    </div>
+                                    <div id="seoQueryRows" class="seo-repeat-list"></div>
+                                </article>
+
+                                <article class="seo-editor-card">
+                                    <div class="seo-editor-head">
+                                        <div><strong>Страницы органического поиска</strong><p class="muted">Трафик, заявки, отказы и средняя позиция посадочных страниц.</p></div>
+                                        <button type="button" class="button" data-add-seo-row="page">Добавить страницу</button>
+                                    </div>
+                                    <div id="seoPageRows" class="seo-repeat-list"></div>
+                                </article>
+
+                                <article class="seo-editor-card">
+                                    <div class="seo-editor-head">
+                                        <div><strong>Индексация и техническое состояние</strong><p class="muted">Критические проблемы, предупреждения и рекомендации.</p></div>
+                                        <button type="button" class="button" data-add-seo-row="issue">Добавить пункт</button>
+                                    </div>
+                                    <div id="seoIssueRows" class="seo-repeat-list"></div>
+                                </article>
+
+                                <article class="seo-editor-card seo-finance-card">
+                                    <div class="seo-editor-head">
+                                        <div><strong>Финансовый результат SEO</strong><p class="muted">Этот блок идёт после поисковых и технических показателей.</p></div>
+                                    </div>
+                                    <div class="seo-period-columns">
+                                        <div>
+                                            <h4>Текущий период</h4>
+                                            <div class="seo-metrics-grid">
+                                                <label><span>Стоимость SEO-работ, ₽</span><input type="number" min="0" step="0.01" data-seo-finance="seo_cost"></label>
+                                                <label><span>Квалифицированные лиды</span><input type="number" min="0" step="1" data-seo-finance="qualified_leads"></label>
+                                                <label><span>Договоры</span><input type="number" min="0" step="1" data-seo-finance="contracts"></label>
+                                                <label><span>Сумма договоров, ₽</span><input type="number" min="0" step="0.01" data-seo-finance="contract_amount"></label>
+                                                <label><span>Оплаченная выручка, ₽</span><input type="number" min="0" step="0.01" data-seo-finance="paid_revenue"></label>
+                                                <label><span>Валовая маржа, %</span><input type="number" min="0" max="100" step="0.01" data-seo-finance="gross_margin_percent"></label>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <h4>Прошлый период</h4>
+                                            <div class="seo-metrics-grid">
+                                                <label><span>Стоимость SEO-работ, ₽</span><input type="number" min="0" step="0.01" data-seo-finance-comparison="seo_cost"></label>
+                                                <label><span>Квалифицированные лиды</span><input type="number" min="0" step="1" data-seo-finance-comparison="qualified_leads"></label>
+                                                <label><span>Договоры</span><input type="number" min="0" step="1" data-seo-finance-comparison="contracts"></label>
+                                                <label><span>Сумма договоров, ₽</span><input type="number" min="0" step="0.01" data-seo-finance-comparison="contract_amount"></label>
+                                                <label><span>Оплаченная выручка, ₽</span><input type="number" min="0" step="0.01" data-seo-finance-comparison="paid_revenue"></label>
+                                                <label><span>Валовая маржа, %</span><input type="number" min="0" max="100" step="0.01" data-seo-finance-comparison="gross_margin_percent"></label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </article>
+
+                                <div class="rich-field seo-results-editor" data-rich-field="seo_results">
+                                    <span class="rich-field-label">Полученные результаты</span>
+                                    <div class="rich-editor-shell">
+                                        <div class="rich-toolbar">
+                                            <button type="button" data-rich-command="bold"><strong>B</strong></button>
+                                            <button type="button" data-rich-command="italic"><em>I</em></button>
+                                            <button type="button" data-rich-command="underline"><u>U</u></button>
+                                            <button type="button" data-rich-block="h3">H3</button>
+                                            <button type="button" data-rich-command="insertUnorderedList">• Список</button>
+                                            <button type="button" data-rich-command="insertOrderedList">1. Список</button>
+                                            <button type="button" data-rich-link>Ссылка</button>
+                                            <button type="button" data-rich-image>Изображение</button>
+                                            <button type="button" data-rich-command="removeFormat">Очистить</button>
+                                        </div>
+                                        <div class="rich-editor" contenteditable="true" data-rich-editor="seo_results" data-placeholder="Какие изменения уже получили: рост трафика, позиций, видимости, заявок..."></div>
+                                    </div>
+                                </div>
+                            </section>
+
