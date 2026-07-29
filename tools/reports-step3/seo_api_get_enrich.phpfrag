@@ -1,0 +1,6 @@
+            if (($report['report_type'] ?? '') === 'seo') {
+                $report['seo_data'] = (new SeoReportRepository())->findData(
+                    (int) $report['id']
+                );
+            }
+
