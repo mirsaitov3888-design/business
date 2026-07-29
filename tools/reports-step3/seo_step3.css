@@ -1,0 +1,250 @@
+
+/* REPORTS_STEP3_CSS */
+.seo-report-editor {
+    display: grid;
+    gap: 16px;
+}
+
+.seo-section-intro {
+    padding: 18px;
+    border: 1px solid #d8e3ff;
+    border-radius: 14px;
+    background: #f5f8ff;
+}
+
+.seo-section-intro h3 {
+    margin-bottom: 7px;
+    font-size: 19px;
+}
+
+.seo-section-intro p:last-child {
+    margin-bottom: 0;
+}
+
+.seo-editor-card {
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fbfcfe;
+}
+
+.seo-editor-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.seo-editor-head p {
+    margin: 5px 0 0;
+}
+
+.seo-period-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.seo-period-columns > div {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: white;
+}
+
+.seo-period-columns h4 {
+    margin-bottom: 12px;
+    font-size: 13px;
+}
+
+.seo-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.seo-metrics-grid label,
+.seo-repeat-row label {
+    display: grid;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.seo-metrics-grid input,
+.seo-repeat-row input,
+.seo-repeat-row select {
+    padding: 9px 10px;
+}
+
+.seo-repeat-list {
+    display: grid;
+    gap: 10px;
+}
+
+.seo-repeat-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+    gap: 9px;
+    align-items: end;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: white;
+}
+
+.seo-trend-row {
+    grid-template-columns: minmax(160px, 1.5fr) repeat(6, minmax(100px, 1fr)) auto;
+}
+
+.seo-source-row {
+    grid-template-columns: minmax(150px, 1.4fr) repeat(7, minmax(95px, 1fr)) auto;
+}
+
+.seo-query-row {
+    grid-template-columns: minmax(210px, 2fr) repeat(4, minmax(95px, .8fr)) minmax(180px, 1.4fr) auto;
+}
+
+.seo-page-row {
+    grid-template-columns: minmax(220px, 2fr) repeat(5, minmax(100px, 1fr)) auto;
+}
+
+.seo-issue-row {
+    grid-template-columns: minmax(150px, .7fr) minmax(240px, 1.4fr) minmax(260px, 2fr) auto;
+}
+
+.seo-wide-field,
+.seo-query-field,
+.seo-page-field {
+    min-width: 0;
+}
+
+.seo-results-editor {
+    margin-top: 0;
+}
+
+.seo-kpi-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.seo-finance-kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.seo-position-change,
+.seo-severity {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.seo-position-change.positive,
+.seo-severity-ok {
+    background: #ecfdf3;
+    color: #067647;
+}
+
+.seo-position-change.negative,
+.seo-severity-critical {
+    background: #fef3f2;
+    color: #b42318;
+}
+
+.seo-position-change.neutral {
+    background: #f2f4f7;
+    color: #667085;
+}
+
+.seo-severity-warning {
+    background: #fff8e7;
+    color: #a16600;
+}
+
+.seo-severity-recommendation {
+    background: #eff4ff;
+    color: #2859bd;
+}
+
+.seo-query-table table {
+    min-width: 980px;
+}
+
+.seo-preview-rich-grid {
+    align-items: stretch;
+}
+
+.report-rich-content img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 12px 0;
+    border-radius: 10px;
+}
+
+.report-rich-content p:last-child,
+.report-rich-content ul:last-child,
+.report-rich-content ol:last-child {
+    margin-bottom: 0;
+}
+
+@media (max-width: 1400px) {
+    .seo-repeat-row,
+    .seo-trend-row,
+    .seo-source-row,
+    .seo-query-row,
+    .seo-page-row,
+    .seo-issue-row {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .seo-repeat-row .button-danger-small {
+        justify-self: start;
+    }
+}
+
+@media (max-width: 1100px) {
+    .seo-period-columns {
+        grid-template-columns: 1fr;
+    }
+
+    .seo-kpi-grid,
+    .seo-finance-kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 760px) {
+    .seo-editor-head {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .seo-metrics-grid,
+    .seo-repeat-row,
+    .seo-trend-row,
+    .seo-source-row,
+    .seo-query-row,
+    .seo-page-row,
+    .seo-issue-row,
+    .seo-kpi-grid,
+    .seo-finance-kpis {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media print {
+    .seo-kpi-grid,
+    .seo-finance-kpis {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .seo-query-table table {
+        min-width: 0;
+    }
+}
