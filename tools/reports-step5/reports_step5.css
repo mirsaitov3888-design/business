@@ -1,0 +1,235 @@
+/* REPORTS_STEP5_CSS */
+.seo-collapse-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.seo-collapsible-card {
+    overflow: hidden;
+}
+
+.seo-collapsible-card > .seo-editor-head {
+    margin-bottom: 0;
+}
+
+.seo-collapsible-card:not(.is-collapsed) > .seo-editor-head {
+    margin-bottom: 16px;
+}
+
+.seo-collapsible-card.is-collapsed > :not(.seo-editor-head) {
+    display: none !important;
+}
+
+.seo-collapsible-card.is-collapsed > .seo-editor-head > .button:not(.seo-collapse-toggle) {
+    display: none;
+}
+
+.seo-collapse-toggle,
+.reports-rich-collapse-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 7px 11px;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    background: #fff;
+    color: #344054;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.seo-collapse-toggle:hover,
+.reports-rich-collapse-toggle:hover {
+    border-color: #9bbcff;
+    color: #2859bd;
+}
+
+.reports-rich-collapsible {
+    overflow: hidden;
+}
+
+.reports-rich-collapse-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.reports-rich-collapsible.is-collapsed > .rich-editor-shell {
+    display: none;
+}
+
+.reports-rich-collapsible.is-collapsed .reports-rich-collapse-head {
+    margin-bottom: 0;
+}
+
+.report-charts-section {
+    margin-top: 24px;
+}
+
+.report-chart-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 14px;
+}
+
+.report-chart-card {
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(16, 24, 40, .05);
+    break-inside: avoid;
+}
+
+.report-chart-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 10px;
+}
+
+.report-chart-head strong,
+.report-chart-head span {
+    display: block;
+}
+
+.report-chart-head span {
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.report-chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px 12px;
+    color: var(--muted);
+    font-size: 10px;
+}
+
+.report-chart-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin: 0;
+}
+
+.report-chart-legend i {
+    width: 9px;
+    height: 9px;
+    border-radius: 3px;
+}
+
+.report-chart-legend i.current {
+    background: #1463ff;
+}
+
+.report-chart-legend i.previous {
+    background: #aab8d4;
+}
+
+.report-chart-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.report-chart-grid-line line {
+    stroke: #e8edf5;
+    stroke-width: 1;
+}
+
+.report-chart-grid-line text,
+.report-chart-x-label {
+    fill: #667085;
+    font-size: 10px;
+}
+
+.report-chart-current {
+    fill: #1463ff;
+}
+
+.report-chart-previous {
+    fill: #aab8d4;
+}
+
+.report-chart-line-current,
+.report-chart-line-previous {
+    fill: none;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.report-chart-line-current {
+    stroke: #1463ff;
+}
+
+.report-chart-line-previous {
+    stroke: #aab8d4;
+    stroke-dasharray: 7 6;
+}
+
+.report-chart-dot-current {
+    fill: #1463ff;
+    stroke: #fff;
+    stroke-width: 2;
+}
+
+.report-chart-dot-previous {
+    fill: #aab8d4;
+    stroke: #fff;
+    stroke-width: 2;
+}
+
+@media (max-width: 1050px) {
+    .report-chart-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 760px) {
+    .seo-collapse-controls,
+    .report-chart-head {
+        width: 100%;
+        margin-left: 0;
+        flex-direction: column;
+    }
+
+    .seo-collapse-controls .button {
+        width: 100%;
+    }
+
+    .report-chart-legend {
+        justify-content: flex-start;
+    }
+}
+
+@media print {
+    .seo-collapse-controls,
+    .seo-collapse-toggle,
+    .reports-rich-collapse-toggle {
+        display: none !important;
+    }
+
+    .report-chart-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .report-chart-card {
+        box-shadow: none;
+        page-break-inside: avoid;
+    }
+}
