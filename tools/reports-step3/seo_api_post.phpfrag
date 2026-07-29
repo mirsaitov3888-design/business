@@ -1,0 +1,86 @@
+    // REPORTS_STEP3_API_POST
+    if ($action === 'save_seo_report') {
+        $project = $projectRepository->firstActive();
+
+        if (!$project) {
+            Security::json(['error' => 'Проект не настроен.'], 422);
+        }
+
+        [$dateFrom, $dateTo] = validateDates(
+            trim((string) ($input['date_from'] ?? '')),
+            trim((string) ($input['date_to'] ?? ''))
+        );
+
+        $comparisonDateFrom = trim(
+            (string) ($input['comparison_date_from'] ?? '')
+        );
+        $comparisonDateTo = trim(
+            (string) ($input['comparison_date_to'] ?? '')
+        );
+
+        if (($comparisonDateFrom === '') !== ($comparisonDateTo === '')) {
+            Security::json(
+                ['error' => 'Для сравнения укажите обе даты периода.'],
+                422
+            );
+        }
+
+        if ($comparisonDateFrom !== '' && $comparisonDateTo !== '') {
+            [$comparisonDateFrom, $comparisonDateTo] = validateDates(
+                $comparisonDateFrom,
+                $comparisonDateTo
+            );
+        }
+
+        $title = trim((string) ($input['title'] ?? ''));
+
+        if (mb_strlen($title) > 190) {
+            Security::json(
+                ['error' => 'Название отчёта не должно превышать 190 символов.'],
+                422
+            );
+        }
+
+        $seoData = is_array($input['seo_data'] ?? null)
+            ? $input['seo_data']
+            : [];
+
+        $repository = new SeoReportRepository();
+        $reportId = $repository->save([
+            'id' => (int) ($input['id'] ?? 0),
+            'project_id' => (int) $project['id'],
+            'title' => $title,
+            'audience' => trim((string) ($input['audience'] ?? 'owner')),
+            'status' => trim((string) ($input['status'] ?? 'draft')),
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'comparison_date_from' => $comparisonDateFrom ?: null,
+            'comparison_date_to' => $comparisonDateTo ?: null,
+            'work_done' => (string) ($input['work_done'] ?? ''),
+            'next_plan' => (string) ($input['next_plan'] ?? ''),
+            'recommendations' => (string) ($input['recommendations'] ?? ''),
+            'notes' => (string) ($input['notes'] ?? ''),
+            'seo_data' => $seoData,
+        ], Auth::id());
+
+        $report = (new ReportRepository())->find(
+            $reportId,
+            (int) $project['id']
+        );
+        $report['seo_data'] = $repository->findData($reportId);
+
+        Auth::audit('seo_report_saved', [
+            'project_id' => (int) $project['id'],
+            'report_id' => $reportId,
+            'status' => $report['status'] ?? null,
+            'queries' => count($report['seo_data']['queries'] ?? []),
+            'pages' => count($report['seo_data']['pages'] ?? []),
+        ]);
+
+        Security::json([
+            'ok' => true,
+            'report' => $report,
+            'message' => 'SEO-отчёт сохранён.',
+        ]);
+    }
+
