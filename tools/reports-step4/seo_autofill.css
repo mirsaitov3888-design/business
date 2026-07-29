@@ -1,0 +1,116 @@
+
+/* REPORTS_STEP4_CSS */
+.seo-section-intro {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+}
+
+.seo-autofill-controls {
+    flex: 0 0 auto;
+    display: grid;
+    justify-items: end;
+    gap: 7px;
+}
+
+.seo-autofill-controls small {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.seo-autofill-message {
+    margin: 0 0 16px;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #f8fafc;
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.seo-autofill-message.success {
+    border-color: #a6e0bd;
+    background: #f0fdf4;
+    color: #166534;
+}
+
+.seo-autofill-message.warning {
+    border-color: #f1d38a;
+    background: #fffbeb;
+    color: #854d0e;
+}
+
+.seo-autofill-message.error {
+    border-color: #f3b4b4;
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.seo-autofill-message.loading {
+    border-color: #b8cbff;
+    background: #f5f8ff;
+    color: #2859bd;
+}
+
+.seo-autofill-summary {
+    display: grid;
+    gap: 3px;
+}
+
+.seo-autofill-summary strong {
+    font-size: 13px;
+}
+
+.seo-autofill-warnings {
+    margin-top: 10px;
+    border-top: 1px solid currentColor;
+    padding-top: 9px;
+}
+
+.seo-autofill-warnings summary {
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.seo-autofill-warnings ul {
+    margin: 8px 0 0;
+    padding-left: 18px;
+}
+
+.seo-autofill-warnings li + li {
+    margin-top: 4px;
+}
+
+.seo-autofill-preview-source {
+    margin: -8px 0 20px;
+    padding: 11px 14px;
+    border: 1px solid #d8e3ff;
+    border-radius: 10px;
+    background: #f5f8ff;
+    color: #2859bd;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+    .seo-section-intro {
+        flex-direction: column;
+    }
+
+    .seo-autofill-controls {
+        width: 100%;
+        justify-items: stretch;
+    }
+
+    .seo-autofill-controls .button {
+        width: 100%;
+    }
+}
+
+@media print {
+    .seo-autofill-message,
+    .seo-autofill-controls {
+        display: none !important;
+    }
+}
