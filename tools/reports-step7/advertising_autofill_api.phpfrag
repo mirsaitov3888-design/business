@@ -1,0 +1,56 @@
+        // REPORTS_STEP7_ADVERTISING_AUTOFILL_API
+        if ($action === 'advertising_autofill') {
+            $project = $projectRepository->firstActive();
+
+            if (!$project) {
+                Security::json(
+                    ['error' => 'Проект не настроен.'],
+                    422
+                );
+            }
+
+            [$dateFrom, $dateTo] = validateDates(
+                trim((string) ($_GET['date1'] ?? '')),
+                trim((string) ($_GET['date2'] ?? ''))
+            );
+
+            $comparisonDateFrom = trim(
+                (string) ($_GET['comparison_date1'] ?? '')
+            );
+            $comparisonDateTo = trim(
+                (string) ($_GET['comparison_date2'] ?? '')
+            );
+
+            if (
+                ($comparisonDateFrom === '')
+                !== ($comparisonDateTo === '')
+            ) {
+                Security::json(
+                    ['error' => 'Для сравнения укажите обе даты периода.'],
+                    422
+                );
+            }
+
+            if (
+                $comparisonDateFrom !== ''
+                && $comparisonDateTo !== ''
+            ) {
+                [$comparisonDateFrom, $comparisonDateTo] = validateDates(
+                    $comparisonDateFrom,
+                    $comparisonDateTo
+                );
+            }
+
+            $data = (new AdvertisingAutoFillService())->build(
+                $project,
+                $dateFrom,
+                $dateTo,
+                $comparisonDateFrom ?: null,
+                $comparisonDateTo ?: null
+            );
+
+            Security::json([
+                'data' => $data,
+            ]);
+        }
+
