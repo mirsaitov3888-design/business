@@ -1,0 +1,79 @@
+/* REPORTS_STEP6_CSS */
+.seo-section-intro.seo-section-intro-step6 {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 14px;
+}
+
+.seo-section-intro-step6 .seo-section-intro-copy {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+}
+
+.seo-section-intro-step6 .seo-section-intro-copy h3,
+.seo-section-intro-step6 .seo-section-intro-copy p {
+    width: 100%;
+    max-width: none;
+}
+
+.seo-section-intro-step6 .seo-collapse-controls {
+    width: 100%;
+    margin: 0;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.seo-section-intro-step6 .seo-collapse-all-toggle {
+    width: auto;
+}
+
+.seo-section-intro-step6 .seo-autofill-controls {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: stretch;
+    gap: 7px;
+}
+
+.seo-section-intro-step6 .seo-autofill-controls #seoAutoFill {
+    width: 100%;
+    min-height: 46px;
+}
+
+.seo-section-intro-step6 .seo-autofill-controls small {
+    width: 100%;
+    text-align: center;
+}
+
+.seo-collapse-toggle,
+.reports-rich-collapse-toggle {
+    line-height: 1.2;
+}
+
+.seo-collapse-toggle .seo-toggle-icon,
+.reports-rich-collapse-toggle .seo-toggle-icon,
+.seo-collapse-toggle > span[aria-hidden="true"],
+.reports-rich-collapse-toggle > span[aria-hidden="true"] {
+    display: inline-flex;
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    font-size: 13px;
+    vertical-align: middle;
+    transform: translateY(-1px);
+}
+
+@media (max-width: 760px) {
+    .seo-section-intro-step6 .seo-collapse-controls {
+        justify-content: stretch;
+    }
+
+    .seo-section-intro-step6 .seo-collapse-all-toggle {
+        width: 100%;
+    }
+}
