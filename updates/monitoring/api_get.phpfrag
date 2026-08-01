@@ -1,0 +1,56 @@
+        // SITE_MONITORING_MODULE_GET
+        if ($action === 'monitoring_overview') {
+            $project = $projectRepository->firstActive();
+            if (!$project) {
+                Security::json(['error' => 'Проект не настроен.'], 422);
+            }
+            Security::json(
+                (new SiteMonitoringService())->overview((int) $project['id'])
+            );
+        }
+
+        if ($action === 'monitoring_site') {
+            $project = $projectRepository->firstActive();
+            if (!$project) {
+                Security::json(['error' => 'Проект не настроен.'], 422);
+            }
+            $siteId = (int) ($_GET['id'] ?? 0);
+            if ($siteId <= 0) {
+                Security::json(['error' => 'Не указан сайт.'], 422);
+            }
+            Security::json(
+                (new SiteMonitoringService())->detail(
+                    $siteId,
+                    (int) $project['id']
+                )
+            );
+        }
+
+        if ($action === 'monitoring_incidents') {
+            $project = $projectRepository->firstActive();
+            if (!$project) {
+                Security::json(['error' => 'Проект не настроен.'], 422);
+            }
+            Security::json([
+                'incidents' => (new MonitoringRepository())->incidents(
+                    (int) $project['id'],
+                    isset($_GET['site_id']) ? (int) $_GET['site_id'] : null,
+                    500
+                ),
+            ]);
+        }
+
+        if ($action === 'monitoring_events') {
+            $project = $projectRepository->firstActive();
+            if (!$project) {
+                Security::json(['error' => 'Проект не настроен.'], 422);
+            }
+            Security::json([
+                'events' => (new MonitoringRepository())->events(
+                    (int) $project['id'],
+                    isset($_GET['site_id']) ? (int) $_GET['site_id'] : null,
+                    500
+                ),
+            ]);
+        }
+
