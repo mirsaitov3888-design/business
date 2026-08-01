@@ -1,0 +1,153 @@
+/* BITRIX24_STEP1_CSS */
+.bitrix24-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 18px;
+    margin-bottom: 18px;
+}
+
+.bitrix24-toolbar p {
+    margin: 7px 0 0;
+}
+
+.bitrix24-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, .8fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.bitrix24-settings-panel,
+.bitrix24-sync-panel {
+    min-width: 0;
+}
+
+.bitrix24-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.bitrix24-badge.positive {
+    background: #ecfdf3;
+    color: #067647;
+}
+
+.bitrix24-badge.negative {
+    background: #fef3f2;
+    color: #b42318;
+}
+
+.bitrix24-badge.neutral {
+    background: #f2f4f7;
+    color: #667085;
+}
+
+.bitrix24-profile {
+    display: grid;
+    gap: 4px;
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: #f8fafc;
+    font-size: 12px;
+}
+
+.bitrix24-profile strong {
+    color: var(--text);
+    font-size: 13px;
+}
+
+.bitrix24-period-grid {
+    margin-bottom: 14px;
+}
+
+.bitrix24-sync-panel > .button {
+    width: 100%;
+}
+
+.bitrix24-sync-note {
+    margin: 12px 0 0;
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.bitrix24-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin: 18px 0;
+}
+
+.bitrix24-tasks-panel {
+    min-width: 0;
+}
+
+.bitrix24-table-wrap {
+    max-height: 620px;
+}
+
+.bitrix24-table-wrap table {
+    min-width: 980px;
+}
+
+.bitrix24-task-date {
+    display: block;
+    margin-top: 5px;
+    color: var(--muted);
+    font-size: 10px;
+}
+
+.bitrix24-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.bitrix24-tags span {
+    display: inline-flex;
+    padding: 3px 6px;
+    border-radius: 999px;
+    background: #eff4ff;
+    color: #2859bd;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+@media (max-width: 1100px) {
+    .bitrix24-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .bitrix24-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 700px) {
+    .bitrix24-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .bitrix24-toolbar .button {
+        width: 100%;
+    }
+
+    .bitrix24-summary {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media print {
+    #section-bitrix24 {
+        display: none !important;
+    }
+}
