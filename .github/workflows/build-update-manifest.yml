@@ -5,6 +5,7 @@ on:
     paths:
       - 'updates/release.json'
       - 'updates/installers/**'
+      - 'updates/monitoring/**'
 
 permissions:
   contents: write
@@ -16,6 +17,23 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Validate PHP update files
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, subprocess, sys
+
+          root = pathlib.Path('.')
+          release = json.loads((root / 'updates/release.json').read_text(encoding='utf-8'))
+          files = [root / release['installer_path']]
+          files.extend(sorted((root / 'updates/monitoring').glob('*.php')))
+          for path in files:
+              result = subprocess.run(['php', '-l', str(path)], text=True, capture_output=True)
+              print(result.stdout, end='')
+              print(result.stderr, end='')
+              if result.returncode != 0:
+                  sys.exit(result.returncode)
+          PY
 
       - name: Build manifest
         run: |
