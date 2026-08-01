@@ -1,0 +1,57 @@
+name: Build update manifest
+
+on:
+  push:
+    paths:
+      - 'updates/release.json'
+      - 'updates/installers/**'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build manifest
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, pathlib
+
+          root = pathlib.Path('.')
+          release = json.loads((root / 'updates/release.json').read_text(encoding='utf-8'))
+          installer_path = root / release['installer_path']
+          digest = hashlib.sha256(installer_path.read_bytes()).hexdigest()
+
+          manifest = {
+              'channel': 'stable',
+              'latest': {
+                  'version': release['version'],
+                  'title': release['title'],
+                  'released_at': release['released_at'],
+                  'changelog': release.get('changelog', []),
+                  'installer_url': 'https://raw.githubusercontent.com/mirsaitov3888-design/business/main/' + release['installer_path'],
+                  'sha256': digest,
+              },
+          }
+          (root / 'updates/manifest.json').write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + '\n',
+              encoding='utf-8'
+          )
+          print(digest)
+          PY
+
+      - name: Commit manifest
+        run: |
+          if git diff --quiet -- updates/manifest.json; then
+            exit 0
+          fi
+          git config user.name 'mirsaitov-update-bot'
+          git config user.email 'update-bot@mirsaitov.local'
+          git add updates/manifest.json
+          git commit -m 'Update stable manifest'
+          git push
