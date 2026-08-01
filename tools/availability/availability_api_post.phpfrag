@@ -1,0 +1,26 @@
+    // AVAILABILITY_MODULE_API_POST
+    if ($action === 'run_availability_check') {
+        $project = $projectRepository->firstActive();
+
+        if (!$project) {
+            Security::json(
+                ['error' => 'Проект не настроен.'],
+                422
+            );
+        }
+
+        $check = (new SiteMonitorService())->checkProject($project);
+
+        Auth::audit('site_availability_checked', [
+            'project_id' => (int) $project['id'],
+            'status' => $check['status'],
+            'http_code' => $check['http_code'],
+            'response_ms' => $check['response_ms'],
+        ]);
+
+        Security::json([
+            'ok' => true,
+            'check' => $check,
+        ]);
+    }
+
