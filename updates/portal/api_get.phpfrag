@@ -1,0 +1,44 @@
+        // CLIENT_ACCESS_PORTAL_V16_API_GET
+        if ($action === 'portal_context') {
+            $service = new \SeoAnalytics\Services\NotificationCenterService();
+            Security::json($service->context());
+        }
+
+        if ($action === 'clients_dashboard') {
+            $access = new \SeoAnalytics\Services\PortalAccessService();
+            $access->requireRoles(['administrator', 'moderator', 'manager']);
+            $repository = new \SeoAnalytics\Repositories\ClientRepository($access);
+            $filters = [
+                'search' => trim((string) ($_GET['search'] ?? '')),
+                'status' => trim((string) ($_GET['status'] ?? '')),
+                'manager_user_id' => (int) ($_GET['manager_user_id'] ?? 0),
+            ];
+            $options = $access->canManageClients()
+                ? $repository->options()
+                : ['users' => [], 'managers' => [], 'client_users' => [], 'projects' => [], 'sites' => []];
+            Security::json([
+                'summary' => $repository->summary(),
+                'items' => $repository->list($filters),
+                'options' => $options,
+                'can_manage' => $access->canManageClients(),
+            ]);
+        }
+
+        if ($action === 'client_detail') {
+            $clientId = (int) ($_GET['client_id'] ?? 0);
+            if ($clientId <= 0) {
+                Security::json(['error' => 'Не указан клиент.'], 422);
+            }
+            $repository = new \SeoAnalytics\Repositories\ClientRepository();
+            Security::json($repository->detail($clientId));
+        }
+
+        if ($action === 'notifications_center') {
+            $service = new \SeoAnalytics\Services\NotificationCenterService();
+            Security::json($service->list([
+                'notification_type' => trim((string) ($_GET['notification_type'] ?? '')),
+                'severity' => trim((string) ($_GET['severity'] ?? '')),
+                'client_id' => (int) ($_GET['client_id'] ?? 0),
+                'unread_only' => !empty($_GET['unread_only']),
+            ]));
+        }
