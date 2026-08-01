@@ -1,18 +1,19 @@
 {
   "channel": "stable",
   "latest": {
-    "version": "2026.08.01.11",
-    "title": "Навигация и диагностика мониторинга",
+    "version": "2026.08.01.12",
+    "title": "Удаление старого раздела доступности",
     "released_at": "2026-08-01",
     "changelog": [
-      "Удалены дубли пунктов меню и повторно вставленных разделов",
-      "Добавлены хлебные крошки по разделам сервиса",
-      "На странице мониторинга скрыты общий заголовок проекта и глобальные фильтры периода",
-      "Исправлена диагностика monitoring worker без ошибки часового пояса",
-      "Cron monitoring worker автоматически проверяется и восстанавливается",
-      "Вместо общей ошибки отображается реальная причина сбоя worker"
+      "Удалён дублирующий раздел «Доступность сайта»",
+      "Удалён старый пункт меню и интерфейс модуля",
+      "Удалены старые API-маршруты, JavaScript и CSS",
+      "Удалены SiteMonitorService, SiteMonitorRepository и run_site_monitor.php",
+      "Удалена старая Cron-задача проверки доступности",
+      "Legacy-таблицы сохранены в базе как резерв, но исключены из схемы новых установок",
+      "Все функции доступности остаются в разделе «Мониторинг сайтов»"
     ],
-    "installer_url": "https://raw.githubusercontent.com/mirsaitov3888-design/business/main/updates/installers/2026.08.01.11.php",
-    "sha256": "0f5d7fd26e91eb3ac5502d34ae4f0f514286ac5ea1ca177bbf6eb8d9478a5fee"
+    "installer_url": "https://raw.githubusercontent.com/mirsaitov3888-design/business/main/updates/installers/2026.08.01.12.php",
+    "sha256": "abf42afa5b1e71d50518230c3e53a31f2fb8ad85aab4222152a555d1a7236ee2"
   }
 }
