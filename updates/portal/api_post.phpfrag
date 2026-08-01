@@ -1,0 +1,48 @@
+    // CLIENT_ACCESS_PORTAL_V16_API_POST
+    if ($action === 'client_save') {
+        Security::requireCsrf($input['csrf_token'] ?? null);
+        $repository = new \SeoAnalytics\Repositories\ClientRepository();
+        $clientId = $repository->save(
+            is_array($input['client'] ?? null) ? $input['client'] : []
+        );
+        Auth::audit('client_saved', [
+            'client_id' => $clientId,
+        ]);
+        Security::json([
+            'ok' => true,
+            'client_id' => $clientId,
+            'message' => 'Карточка клиента сохранена.',
+        ]);
+    }
+
+    if ($action === 'notification_create') {
+        Security::requireCsrf($input['csrf_token'] ?? null);
+        $service = new \SeoAnalytics\Services\NotificationCenterService();
+        $notificationId = $service->create(
+            is_array($input['notification'] ?? null) ? $input['notification'] : []
+        );
+        Auth::audit('notification_created', [
+            'notification_id' => $notificationId,
+        ]);
+        Security::json([
+            'ok' => true,
+            'notification_id' => $notificationId,
+            'message' => 'Уведомление создано и направлено получателям.',
+        ]);
+    }
+
+    if ($action === 'notification_mark_read') {
+        Security::requireCsrf($input['csrf_token'] ?? null);
+        $notificationId = (int) ($input['notification_id'] ?? 0);
+        if ($notificationId <= 0) {
+            Security::json(['error' => 'Не указано уведомление.'], 422);
+        }
+        (new \SeoAnalytics\Services\NotificationCenterService())->markRead($notificationId);
+        Security::json(['ok' => true]);
+    }
+
+    if ($action === 'notifications_mark_all_read') {
+        Security::requireCsrf($input['csrf_token'] ?? null);
+        (new \SeoAnalytics\Services\NotificationCenterService())->markAllRead();
+        Security::json(['ok' => true]);
+    }
