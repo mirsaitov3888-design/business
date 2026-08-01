@@ -1,0 +1,201 @@
+        <!-- SITE_MONITORING_MODULE -->
+        <section id="section-site-monitoring" class="section">
+            <div class="monitoring-toolbar">
+                <div>
+                    <p class="eyebrow">Техническая поддержка</p>
+                    <h2>Мониторинг сайтов</h2>
+                    <p class="muted">
+                        Доступность, скорость, индексация, SEO-настройки, DNS, домен, SSL, Яндекс Метрика, инциденты и уведомления.
+                    </p>
+                </div>
+                <div class="monitoring-toolbar-actions">
+                    <span id="monitoringWorkerStatus" class="monitoring-worker unknown">
+                        <strong>Worker</strong><span>Проверяем состояние…</span>
+                    </span>
+                    <button type="button" class="button" id="monitoringRefresh">Обновить</button>
+                    <button type="button" class="button button-primary" id="monitoringAddSite">Добавить сайт</button>
+                </div>
+            </div>
+
+            <?php if (!$project): ?>
+                <div class="empty-state">
+                    <h2>Сначала добавьте проект</h2>
+                    <p>Сайты мониторинга привязываются к активному проекту.</p>
+                </div>
+            <?php else: ?>
+                <div id="monitoringMessage"></div>
+                <div id="monitoringSummary" class="monitoring-summary"></div>
+
+                <article id="monitoringSiteEditor" class="panel monitoring-site-editor hidden">
+                    <div class="panel-head">
+                        <div>
+                            <p class="eyebrow">Настройка</p>
+                            <h2 id="monitoringSiteEditorTitle">Новый сайт</h2>
+                        </div>
+                        <button type="button" class="button" id="monitoringSiteEditorClose">Закрыть</button>
+                    </div>
+
+                    <form id="monitoringSiteForm" class="settings-form">
+                        <input type="hidden" name="id" value="0">
+                        <div class="form-grid monitoring-site-main-grid">
+                            <label>
+                                <span>Название сайта</span>
+                                <input name="name" maxlength="190" placeholder="Основной сайт клиента" required>
+                            </label>
+                            <label>
+                                <span>Адрес сайта</span>
+                                <input name="base_url" maxlength="1000" placeholder="https://example.ru" required>
+                            </label>
+                            <label>
+                                <span>Интервал проверки, минут</span>
+                                <input type="number" name="check_interval_minutes" min="5" max="1440" value="5" required>
+                            </label>
+                            <label>
+                                <span>Медленный ответ от, мс</span>
+                                <input type="number" name="slow_threshold_ms" min="500" max="60000" value="3000" required>
+                            </label>
+                            <label class="monitoring-wide-field">
+                                <span>Ожидаемые ID счётчиков Метрики</span>
+                                <input name="expected_metrika_ids" maxlength="500" placeholder="12345678, 87654321">
+                                <small>Если поле заполнено, исчезновение конкретного счётчика будет считаться критической проблемой.</small>
+                            </label>
+                        </div>
+
+                        <div class="monitoring-notification-grid">
+                            <section class="monitoring-recipient-box">
+                                <h3>Технические уведомления</h3>
+                                <label><span>Email разработчиков</span><input type="email" name="technical_email" placeholder="support@example.ru"></label>
+                                <label><span>Telegram chat ID</span><input name="technical_telegram_chat" maxlength="100" placeholder="-1001234567890"></label>
+                            </section>
+                            <section class="monitoring-recipient-box">
+                                <h3>SEO и реклама</h3>
+                                <label><span>Email маркетологов</span><input type="email" name="marketing_email" placeholder="marketing@example.ru"></label>
+                                <label><span>Telegram chat ID</span><input name="marketing_telegram_chat" maxlength="100" placeholder="-1001234567890"></label>
+                            </section>
+                        </div>
+
+                        <div class="monitoring-checkboxes">
+                            <label><input type="checkbox" name="is_active" checked> <span>Мониторинг включён</span></label>
+                            <label><input type="checkbox" name="notify_email"> <span>Отправлять email</span></label>
+                            <label><input type="checkbox" name="notify_telegram"> <span>Отправлять Telegram</span></label>
+                            <label><input type="checkbox" name="run_initial_audit" checked> <span>Выполнить полный аудит после сохранения</span></label>
+                        </div>
+
+                        <div class="report-actions">
+                            <button type="submit" class="button button-primary">Сохранить сайт</button>
+                            <button type="button" class="button button-danger" id="monitoringDeleteSite">Удалить сайт</button>
+                        </div>
+                    </form>
+                </article>
+
+                <div class="monitoring-layout">
+                    <aside class="panel monitoring-sites-panel">
+                        <div class="panel-head">
+                            <div>
+                                <p class="eyebrow">Проект</p>
+                                <h2>Сайты</h2>
+                            </div>
+                            <span id="monitoringSitesCount" class="muted"></span>
+                        </div>
+                        <div id="monitoringSitesList" class="monitoring-sites-list">
+                            <div class="muted">Загружаем сайты…</div>
+                        </div>
+                    </aside>
+
+                    <main class="panel monitoring-detail-panel">
+                        <div id="monitoringEmptyDetail" class="empty-state monitoring-empty-detail">
+                            <h2>Выберите сайт</h2>
+                            <p>Здесь появятся показатели доступности, аудит и история изменений.</p>
+                        </div>
+
+                        <div id="monitoringDetail" class="hidden">
+                            <div class="monitoring-detail-head">
+                                <div>
+                                    <p class="eyebrow">Текущий сайт</p>
+                                    <h2 id="monitoringDetailName">—</h2>
+                                    <a id="monitoringDetailUrl" href="#" target="_blank" rel="noopener noreferrer"></a>
+                                </div>
+                                <div class="monitoring-detail-actions">
+                                    <button type="button" class="button" id="monitoringEditSite">Настроить</button>
+                                    <button type="button" class="button" id="monitoringCheckSite">Проверить доступность</button>
+                                    <button type="button" class="button button-primary" id="monitoringAuditSite">Полный аудит</button>
+                                </div>
+                            </div>
+
+                            <nav class="monitoring-tabs" aria-label="Разделы мониторинга">
+                                <button type="button" class="is-active" data-monitoring-tab="overview">Обзор</button>
+                                <button type="button" data-monitoring-tab="availability">Доступность</button>
+                                <button type="button" data-monitoring-tab="indexing">Индексация и SEO</button>
+                                <button type="button" data-monitoring-tab="infrastructure">DNS, домен и SSL</button>
+                                <button type="button" data-monitoring-tab="metrika">Метрика</button>
+                                <button type="button" data-monitoring-tab="incidents">Инциденты</button>
+                                <button type="button" data-monitoring-tab="history">Изменения</button>
+                            </nav>
+
+                            <section class="monitoring-tab-content is-active" data-monitoring-content="overview">
+                                <div id="monitoringSiteMetrics" class="monitoring-site-metrics"></div>
+                                <div id="monitoringAuditSummary" class="monitoring-audit-summary"></div>
+                            </section>
+
+                            <section class="monitoring-tab-content" data-monitoring-content="availability">
+                                <div class="reports-section-head">
+                                    <div>
+                                        <strong>Время ответа за 7 дней</strong>
+                                        <p class="muted">Красные точки обозначают неуспешные проверки.</p>
+                                    </div>
+                                </div>
+                                <div id="monitoringAvailabilityChart" class="monitoring-chart"></div>
+                                <div id="monitoringAvailabilityTable" class="table-scroll"></div>
+                            </section>
+
+                            <section class="monitoring-tab-content" data-monitoring-content="indexing">
+                                <div id="monitoringIndexingGrid" class="monitoring-audit-grid"></div>
+                            </section>
+
+                            <section class="monitoring-tab-content" data-monitoring-content="infrastructure">
+                                <div id="monitoringInfrastructureGrid" class="monitoring-audit-grid"></div>
+                                <div id="monitoringDnsTable" class="monitoring-dns-table"></div>
+                            </section>
+
+                            <section class="monitoring-tab-content" data-monitoring-content="metrika">
+                                <div id="monitoringMetrikaGrid" class="monitoring-audit-grid"></div>
+                            </section>
+
+                            <section class="monitoring-tab-content" data-monitoring-content="incidents">
+                                <div id="monitoringIncidents" class="monitoring-timeline"></div>
+                            </section>
+
+                            <section class="monitoring-tab-content" data-monitoring-content="history">
+                                <div id="monitoringEvents" class="monitoring-timeline"></div>
+                            </section>
+                        </div>
+                    </main>
+                </div>
+
+                <article class="panel monitoring-global-settings">
+                    <details>
+                        <summary>
+                            <span><strong>Каналы уведомлений</strong><small>Глобальная настройка Telegram-бота и отправителя email</small></span>
+                        </summary>
+                        <form id="monitoringNotificationSettings" class="settings-form monitoring-global-settings-form">
+                            <div class="form-grid">
+                                <label>
+                                    <span>Токен Telegram-бота</span>
+                                    <input type="password" name="telegram_bot_token" autocomplete="new-password" placeholder="Введите новый токен или оставьте без изменений">
+                                    <small id="monitoringTelegramStatus">Telegram не настроен.</small>
+                                </label>
+                                <label>
+                                    <span>Email отправителя</span>
+                                    <input type="email" name="email_from" placeholder="monitoring@example.ru">
+                                </label>
+                                <label>
+                                    <span>Имя отправителя</span>
+                                    <input name="email_from_name" maxlength="190" value="Мониторинг сайтов">
+                                </label>
+                            </div>
+                            <button type="submit" class="button button-primary">Сохранить каналы уведомлений</button>
+                        </form>
+                    </details>
+                </article>
+            <?php endif; ?>
+        </section>
