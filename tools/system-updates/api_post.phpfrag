@@ -1,0 +1,43 @@
+    // SYSTEM_UPDATES_MODULE_API_POST
+    if ($action === 'system_update_install') {
+        $service = new SystemUpdateService();
+        $jobId = $service->queueLatest(Auth::id());
+
+        Auth::audit('system_update_queued', [
+            'job_id' => $jobId,
+        ]);
+
+        Security::json([
+            'ok' => true,
+            'job_id' => $jobId,
+            'message' => 'Обновление поставлено в очередь. Worker начнёт установку в течение минуты.',
+        ]);
+    }
+
+    if ($action === 'system_update_rollback') {
+        $updateId = (int) ($input['update_id'] ?? 0);
+
+        if ($updateId <= 0) {
+            Security::json([
+                'error' => 'Не выбрано обновление для отката.'
+            ], 422);
+        }
+
+        $service = new SystemUpdateService();
+        $jobId = $service->queueRollback(
+            $updateId,
+            Auth::id()
+        );
+
+        Auth::audit('system_update_rollback_queued', [
+            'source_update_id' => $updateId,
+            'job_id' => $jobId,
+        ]);
+
+        Security::json([
+            'ok' => true,
+            'job_id' => $jobId,
+            'message' => 'Откат поставлен в очередь. Worker начнёт операцию в течение минуты.',
+        ]);
+    }
+
