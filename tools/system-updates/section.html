@@ -1,0 +1,89 @@
+        <!-- SYSTEM_UPDATES_MODULE -->
+        <section id="section-system-updates" class="section">
+            <div class="updates-toolbar">
+                <div>
+                    <p class="eyebrow">Система</p>
+                    <h2>Обновления</h2>
+                    <p class="muted">
+                        Проверка новых версий, установка с резервной копией и автоматический откат при ошибке.
+                    </p>
+                </div>
+                <button type="button" class="button" id="systemUpdatesRefresh">
+                    Проверить обновления
+                </button>
+            </div>
+
+            <div id="systemUpdatesMessage"></div>
+
+            <div class="updates-grid">
+                <article class="panel updates-current-panel">
+                    <div class="panel-head">
+                        <div>
+                            <p class="eyebrow">Версия</p>
+                            <h2>Состояние системы</h2>
+                        </div>
+                        <span id="systemUpdatesBadge" class="updates-badge neutral">
+                            Проверяем
+                        </span>
+                    </div>
+
+                    <div class="updates-version-block">
+                        <div>
+                            <span>Установлена</span>
+                            <strong id="systemUpdatesCurrentVersion">—</strong>
+                        </div>
+                        <div>
+                            <span>Доступна</span>
+                            <strong id="systemUpdatesLatestVersion">—</strong>
+                        </div>
+                    </div>
+
+                    <div id="systemUpdatesRelease" class="updates-release muted">
+                        Загружаем описание актуальной версии…
+                    </div>
+
+                    <button
+                        type="button"
+                        class="button button-primary hidden"
+                        id="systemUpdatesInstall"
+                    >
+                        Установить обновление
+                    </button>
+
+                    <p class="muted updates-note">
+                        Установка выполняется фоновым worker-процессом. Перед изменениями создаётся полная резервная копия проекта, установщик проверяется по SHA-256 и PHP-синтаксису.
+                    </p>
+                </article>
+
+                <article class="panel updates-security-panel">
+                    <div class="panel-head">
+                        <div>
+                            <p class="eyebrow">Защита</p>
+                            <h2>Как проходит обновление</h2>
+                        </div>
+                    </div>
+
+                    <div class="updates-security-list">
+                        <div><strong>1</strong><span>Проверяется разрешённый GitHub-репозиторий.</span></div>
+                        <div><strong>2</strong><span>Сверяется SHA-256 установщика.</span></div>
+                        <div><strong>3</strong><span>Создаётся архив текущей версии.</span></div>
+                        <div><strong>4</strong><span>Проверяется PHP-синтаксис.</span></div>
+                        <div><strong>5</strong><span>При ошибке файлы восстанавливаются автоматически.</span></div>
+                    </div>
+                </article>
+            </div>
+
+            <article class="panel updates-history-panel">
+                <div class="panel-head">
+                    <div>
+                        <p class="eyebrow">Журнал</p>
+                        <h2>История обновлений</h2>
+                    </div>
+                    <span class="muted">Worker проверяет очередь каждую минуту</span>
+                </div>
+
+                <div id="systemUpdatesHistory" class="updates-history">
+                    <div class="muted">История пока не загружена.</div>
+                </div>
+            </article>
+        </section>
