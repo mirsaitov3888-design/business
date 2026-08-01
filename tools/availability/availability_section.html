@@ -1,0 +1,63 @@
+        <!-- AVAILABILITY_MODULE -->
+        <section id="section-availability" class="section">
+            <div class="availability-toolbar">
+                <div>
+                    <p class="eyebrow">Контроль сайта</p>
+                    <h2>Доступность сайта</h2>
+                    <p class="muted">Uptime, скорость ответа, HTTP-ошибки, SSL и история инцидентов.</p>
+                </div>
+                <button type="button" class="button button-primary" id="runAvailabilityCheck">
+                    Проверить сейчас
+                </button>
+            </div>
+
+            <div id="availabilityMessage"></div>
+
+            <?php if (!$project): ?>
+                <div class="empty-state">
+                    <h2>Сначала добавьте проект</h2>
+                    <p>Для мониторинга требуется адрес сайта в настройках проекта.</p>
+                </div>
+            <?php else: ?>
+                <div id="availabilityCards" class="metric-grid availability-cards"></div>
+
+                <div class="grid-2">
+                    <article class="panel">
+                        <div class="panel-head">
+                            <div>
+                                <p class="eyebrow">История проверок</p>
+                                <h2>Скорость и состояние</h2>
+                            </div>
+                        </div>
+                        <div id="availabilityChart" class="availability-chart"></div>
+                    </article>
+
+                    <article class="panel">
+                        <div class="panel-head">
+                            <div>
+                                <p class="eyebrow">Текущий статус</p>
+                                <h2>Последняя проверка</h2>
+                            </div>
+                        </div>
+                        <div id="availabilityCurrent"></div>
+                    </article>
+                </div>
+
+                <article class="panel">
+                    <div class="panel-head">
+                        <div>
+                            <p class="eyebrow">Сбои</p>
+                            <h2>История инцидентов</h2>
+                        </div>
+                    </div>
+                    <div id="availabilityIncidents"></div>
+                </article>
+
+                <div class="availability-cron-note">
+                    <strong>Автоматический мониторинг</strong>
+                    <span>После установки добавьте команду проверки в планировщик Cron каждые 5 минут.</span>
+                    <code>php /var/www/u0935795/data/www/seo-test.mirsaitov.pw/bin/run_site_monitor.php</code>
+                </div>
+            <?php endif; ?>
+        </section>
+
