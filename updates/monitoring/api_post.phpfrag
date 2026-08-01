@@ -1,0 +1,97 @@
+    // SITE_MONITORING_MODULE_POST
+    if ($action === 'monitoring_save_site') {
+        Security::requireCsrf($input['csrf_token'] ?? null);
+        $project = $projectRepository->firstActive();
+        if (!$project) {
+            Security::json(['error' => 'Проект не настроен.'], 422);
+        }
+        $result = (new SiteMonitoringService())->saveSite(
+            is_array($input['site'] ?? null) ? $input['site'] : [],
+            (int) $project['id']
+        );
+        Auth::audit('monitoring_site_saved', [
+            'project_id' => (int) $project['id'],
+            'site_id' => (int) ($result['site']['id'] ?? 0),
+        ]);
+        Security::json([
+            'ok' => true,
+            'result' => $result,
+            'message' => 'Сайт сохранён. Первичная проверка выполнена.',
+        ]);
+    }
+
+    if ($action === 'monitoring_delete_site') {
+        Security::requireCsrf($input['csrf_token'] ?? null);
+        $project = $projectRepository->firstActive();
+        if (!$project) {
+            Security::json(['error' => 'Проект не настроен.'], 422);
+        }
+        $siteId = (int) ($input['site_id'] ?? 0);
+        if ($siteId <= 0) {
+            Security::json(['error' => 'Не указан сайт.'], 422);
+        }
+        (new SiteMonitoringService())->deleteSite(
+            $siteId,
+            (int) $project['id']
+        );
+        Auth::audit('monitoring_site_deleted', [
+            'project_id' => (int) $project['id'],
+            'site_id' => $siteId,
+        ]);
+        Security::json(['ok' => true, 'message' => 'Сайт удалён из мониторинга.']);
+    }
+
+    if ($action === 'monitoring_check_site') {
+        Security::requireCsrf($input['csrf_token'] ?? null);
+        $project = $projectRepository->firstActive();
+        if (!$project) {
+            Security::json(['error' => 'Проект не настроен.'], 422);
+        }
+        $siteId = (int) ($input['site_id'] ?? 0);
+        $result = (new SiteMonitoringService())->checkSite(
+            $siteId,
+            (int) $project['id']
+        );
+        Security::json([
+            'ok' => true,
+            'result' => $result,
+            'message' => $result['is_up']
+                ? 'Сайт доступен.'
+                : 'Сайт не прошёл три повторные проверки.',
+        ]);
+    }
+
+    if ($action === 'monitoring_audit_site') {
+        Security::requireCsrf($input['csrf_token'] ?? null);
+        $project = $projectRepository->firstActive();
+        if (!$project) {
+            Security::json(['error' => 'Проект не настроен.'], 422);
+        }
+        $siteId = (int) ($input['site_id'] ?? 0);
+        $audit = (new SiteMonitoringService())->auditSite(
+            $siteId,
+            (int) $project['id']
+        );
+        Security::json([
+            'ok' => true,
+            'audit' => $audit,
+            'message' => 'Полный аудит сайта завершён.',
+        ]);
+    }
+
+    if ($action === 'monitoring_save_notification_settings') {
+        Security::requireCsrf($input['csrf_token'] ?? null);
+        $settings = (new SiteMonitoringService())->saveNotificationSettings(
+            is_array($input['settings'] ?? null) ? $input['settings'] : []
+        );
+        Auth::audit('monitoring_notification_settings_saved', [
+            'telegram_configured' => !empty($settings['telegram_configured']),
+            'email_from' => $settings['email_from'] ?? '',
+        ]);
+        Security::json([
+            'ok' => true,
+            'settings' => $settings,
+            'message' => 'Настройки уведомлений сохранены.',
+        ]);
+    }
+
