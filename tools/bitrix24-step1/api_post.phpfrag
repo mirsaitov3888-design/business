@@ -1,0 +1,81 @@
+    // BITRIX24_STEP1_API_POST
+    if ($action === 'bitrix24_save_link') {
+        Security::requireCsrf($input['csrf_token'] ?? null);
+        $project = $projectRepository->firstActive();
+
+        if (!$project) {
+            Security::json(
+                ['error' => 'Проект не настроен.'],
+                422
+            );
+        }
+
+        $link = (new Bitrix24Repository())->saveLink([
+            'project_id' => (int) $project['id'],
+            'bitrix_group_id' => (int) (
+                $input['bitrix_group_id'] ?? 0
+            ),
+            'bitrix_group_name' => (string) (
+                $input['bitrix_group_name'] ?? ''
+            ),
+            'bitrix_company_id' => (int) (
+                $input['bitrix_company_id'] ?? 0
+            ),
+            'bitrix_company_name' => (string) (
+                $input['bitrix_company_name'] ?? ''
+            ),
+            'report_tag' => (string) (
+                $input['report_tag'] ?? 'client_report'
+            ),
+        ]);
+
+        Auth::audit('bitrix24_project_link_saved', [
+            'project_id' => (int) $project['id'],
+            'bitrix_group_id' => $link['bitrix_group_id'] ?? null,
+            'bitrix_company_id' => $link['bitrix_company_id'] ?? null,
+            'report_tag' => $link['report_tag'] ?? null,
+        ]);
+
+        Security::json([
+            'ok' => true,
+            'link' => $link,
+        ]);
+    }
+
+    if ($action === 'bitrix24_sync') {
+        Security::requireCsrf($input['csrf_token'] ?? null);
+        $project = $projectRepository->firstActive();
+
+        if (!$project) {
+            Security::json(
+                ['error' => 'Проект не настроен.'],
+                422
+            );
+        }
+
+        [$dateFrom, $dateTo] = validateDates(
+            trim((string) ($input['date_from'] ?? '')),
+            trim((string) ($input['date_to'] ?? ''))
+        );
+
+        $result = (new Bitrix24SyncService())->sync(
+            (int) $project['id'],
+            $dateFrom,
+            $dateTo
+        );
+
+        Auth::audit('bitrix24_tasks_synced', [
+            'project_id' => (int) $project['id'],
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'tasks_count' => $result['preview']['summary']['tasks_count'] ?? 0,
+            'elapsed_seconds' => $result['preview']['summary']['elapsed_seconds'] ?? 0,
+        ]);
+
+        Security::json([
+            'ok' => true,
+            'preview' => $result['preview'],
+            'warnings' => $result['warnings'],
+        ]);
+    }
+
