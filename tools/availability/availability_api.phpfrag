@@ -1,0 +1,27 @@
+        // AVAILABILITY_MODULE_API_GET
+        if ($action === 'availability_dashboard') {
+            $project = $projectRepository->firstActive();
+
+            if (!$project) {
+                Security::json(
+                    ['error' => 'Проект не настроен.'],
+                    422
+                );
+            }
+
+            [$dateFrom, $dateTo] = validateDates(
+                trim((string) ($_GET['date1'] ?? '')),
+                trim((string) ($_GET['date2'] ?? ''))
+            );
+
+            $data = (new SiteMonitorService())->dashboard(
+                $project,
+                $dateFrom,
+                $dateTo
+            );
+
+            Security::json([
+                'data' => $data,
+            ]);
+        }
+
