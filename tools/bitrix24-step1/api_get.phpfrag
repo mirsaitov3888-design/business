@@ -1,0 +1,75 @@
+        // BITRIX24_STEP1_API_GET
+        if ($action === 'bitrix24_status') {
+            $project = $projectRepository->firstActive();
+
+            if (!$project) {
+                Security::json(
+                    ['error' => 'Проект не настроен.'],
+                    422
+                );
+            }
+
+            $repository = new Bitrix24Repository();
+            $link = $repository->link((int) $project['id']);
+
+            try {
+                $client = new Bitrix24Client();
+                $profile = $client->profile()['result'] ?? [];
+
+                Security::json([
+                    'connected' => true,
+                    'portal_host' => $client->portalHost(),
+                    'profile' => is_array($profile) ? $profile : [],
+                    'link' => $link,
+                ]);
+            } catch (Throwable $exception) {
+                Security::json([
+                    'connected' => false,
+                    'error' => $exception->getMessage(),
+                    'link' => $link,
+                ]);
+            }
+        }
+
+        if ($action === 'bitrix24_projects') {
+            $rows = (new Bitrix24Client())->projects();
+
+            Security::json([
+                'projects' => $rows,
+            ]);
+        }
+
+        if ($action === 'bitrix24_companies') {
+            $rows = (new Bitrix24Client())->companies();
+
+            Security::json([
+                'companies' => $rows,
+            ]);
+        }
+
+        if ($action === 'bitrix24_preview') {
+            $project = $projectRepository->firstActive();
+
+            if (!$project) {
+                Security::json(
+                    ['error' => 'Проект не настроен.'],
+                    422
+                );
+            }
+
+            [$dateFrom, $dateTo] = validateDates(
+                trim((string) ($_GET['date1'] ?? '')),
+                trim((string) ($_GET['date2'] ?? ''))
+            );
+
+            $preview = (new Bitrix24Repository())->preview(
+                (int) $project['id'],
+                $dateFrom,
+                $dateTo
+            );
+
+            Security::json([
+                'preview' => $preview,
+            ]);
+        }
+
