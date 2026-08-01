@@ -1,0 +1,125 @@
+        <!-- CLIENT_ACCESS_PORTAL_V16 -->
+        <section id="section-clients" class="section">
+            <div class="portal-section-toolbar">
+                <div>
+                    <p class="eyebrow">Работа с клиентами</p>
+                    <h2>Клиенты</h2>
+                    <p class="muted">Компании, ответственные менеджеры, проекты, сайты и клиентские аккаунты.</p>
+                </div>
+                <button type="button" class="button button-primary" id="portalClientCreate">Добавить клиента</button>
+            </div>
+
+            <div id="portalClientsMessage"></div>
+            <div id="portalClientsSummary" class="metric-grid portal-client-summary"></div>
+
+            <div class="portal-client-layout">
+                <article class="panel portal-client-list-panel">
+                    <div class="portal-client-filters">
+                        <label>
+                            <span>Поиск</span>
+                            <input type="search" id="portalClientSearch" placeholder="Название, контакт или email">
+                        </label>
+                        <label>
+                            <span>Статус</span>
+                            <select id="portalClientStatusFilter">
+                                <option value="">Все</option>
+                                <option value="active">Активные</option>
+                                <option value="pending">Ожидают подключения</option>
+                                <option value="paused">Приостановлены</option>
+                                <option value="archived">Архив</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>Менеджер</span>
+                            <select id="portalClientManagerFilter"><option value="">Все</option></select>
+                        </label>
+                    </div>
+                    <div id="portalClientsList" class="portal-clients-list">
+                        <div class="reports-empty"><strong>Загрузка данных</strong><span>Получаем список клиентов.</span></div>
+                    </div>
+                </article>
+
+                <article class="panel portal-client-detail-panel">
+                    <div id="portalClientEmpty" class="reports-empty">
+                        <strong>Выберите клиента</strong>
+                        <span>Справа появится карточка, проекты, сайты и пользователи.</span>
+                    </div>
+                    <div id="portalClientDetail" class="hidden"></div>
+                </article>
+            </div>
+
+            <div id="portalClientEditor" class="portal-editor hidden" aria-hidden="true">
+                <div class="portal-editor-dialog">
+                    <div class="portal-editor-head">
+                        <div><p class="eyebrow">Карточка клиента</p><h2 id="portalClientEditorTitle">Новый клиент</h2></div>
+                        <button type="button" class="button" id="portalClientEditorClose">Закрыть</button>
+                    </div>
+                    <form id="portalClientForm" class="portal-client-form">
+                        <input type="hidden" name="id" value="0">
+                        <div class="portal-form-grid">
+                            <label class="portal-field-wide"><span>Название клиента</span><input name="name" required maxlength="255"></label>
+                            <label><span>Статус</span><select name="status"><option value="active">Активен</option><option value="pending">Ожидает подключения</option><option value="paused">Приостановлен</option><option value="archived">Архивный</option></select></label>
+                            <label><span>Ответственный менеджер</span><select name="manager_user_id"><option value="">Не назначен</option></select></label>
+                            <label><span>Контактное лицо</span><input name="contact_name" maxlength="255"></label>
+                            <label><span>Email</span><input name="contact_email" type="email" maxlength="255"></label>
+                            <label><span>Телефон</span><input name="contact_phone" maxlength="100"></label>
+                            <label class="portal-field-wide"><span>Внутренние заметки</span><textarea name="notes" rows="4"></textarea></label>
+                        </div>
+
+                        <div class="portal-assignment-grid">
+                            <fieldset><legend>Проекты</legend><div id="portalClientProjectsOptions" class="portal-check-list"></div></fieldset>
+                            <fieldset><legend>Сайты мониторинга</legend><div id="portalClientSitesOptions" class="portal-check-list"></div></fieldset>
+                            <fieldset><legend>Клиентские аккаунты</legend><div id="portalClientUsersOptions" class="portal-check-list"></div></fieldset>
+                        </div>
+                        <div class="portal-editor-actions"><button type="submit" class="button button-primary">Сохранить клиента</button></div>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <section id="section-notifications" class="section">
+            <div class="portal-section-toolbar">
+                <div>
+                    <p class="eyebrow">Единый центр</p>
+                    <h2>Уведомления</h2>
+                    <p class="muted">Системные, операционные и клиентские события в одном разделе.</p>
+                </div>
+                <div class="portal-toolbar-actions">
+                    <button type="button" class="button" id="portalNotificationsReadAll">Прочитать все</button>
+                    <button type="button" class="button button-primary" id="portalNotificationCreate">Создать уведомление</button>
+                </div>
+            </div>
+
+            <div id="portalNotificationsMessage"></div>
+            <div class="portal-notification-filters">
+                <button type="button" class="is-active" data-portal-notification-type="">Все</button>
+                <button type="button" data-portal-notification-type="system">Системные</button>
+                <button type="button" data-portal-notification-type="operational">Для менеджера</button>
+                <button type="button" data-portal-notification-type="client">Клиентские</button>
+                <label><input type="checkbox" id="portalNotificationsUnreadOnly"> Только непрочитанные</label>
+                <select id="portalNotificationsSeverity"><option value="">Любая важность</option><option value="critical">Критические</option><option value="warning">Предупреждения</option><option value="info">Информация</option></select>
+            </div>
+
+            <div id="portalNotificationsList" class="portal-notifications-list">
+                <div class="reports-empty"><strong>Загрузка данных</strong><span>Получаем уведомления.</span></div>
+            </div>
+
+            <div id="portalNotificationEditor" class="portal-editor hidden" aria-hidden="true">
+                <div class="portal-editor-dialog portal-notification-dialog">
+                    <div class="portal-editor-head">
+                        <div><p class="eyebrow">Новое сообщение</p><h2>Создать уведомление</h2></div>
+                        <button type="button" class="button" id="portalNotificationEditorClose">Закрыть</button>
+                    </div>
+                    <form id="portalNotificationForm" class="portal-client-form">
+                        <div class="portal-form-grid">
+                            <label><span>Тип</span><select name="notification_type"><option value="operational">Для менеджера</option><option value="client">Клиентское</option><option value="system">Системное</option></select></label>
+                            <label><span>Важность</span><select name="severity"><option value="info">Информация</option><option value="warning">Предупреждение</option><option value="critical">Критично</option></select></label>
+                            <label class="portal-field-wide"><span>Клиент</span><select name="client_id"><option value="">Не выбран</option></select></label>
+                            <label class="portal-field-wide"><span>Заголовок</span><input name="title" required maxlength="500"></label>
+                            <label class="portal-field-wide"><span>Сообщение</span><textarea name="message" rows="6" required></textarea></label>
+                        </div>
+                        <div class="portal-editor-actions"><button type="submit" class="button button-primary">Отправить уведомление</button></div>
+                    </form>
+                </div>
+            </div>
+        </section>
