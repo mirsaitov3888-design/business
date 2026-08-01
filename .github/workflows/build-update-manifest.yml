@@ -6,6 +6,7 @@ on:
       - 'updates/release.json'
       - 'updates/installers/**'
       - 'updates/monitoring/**'
+      - 'updates/portal/**'
 
 permissions:
   contents: write
@@ -27,6 +28,7 @@ jobs:
           release = json.loads((root / 'updates/release.json').read_text(encoding='utf-8'))
           files = [root / release['installer_path']]
           files.extend(sorted((root / 'updates/monitoring').glob('*.php')))
+          files.extend(sorted((root / 'updates/portal').glob('*.php')))
           for path in files:
               result = subprocess.run(['php', '-l', str(path)], text=True, capture_output=True)
               print(result.stdout, end='')
