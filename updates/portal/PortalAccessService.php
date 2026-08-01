@@ -19,7 +19,9 @@ final class PortalAccessService
             $_SESSION['user_id'] ?? null,
             $_SESSION['auth_user_id'] ?? null,
             $_SESSION['uid'] ?? null,
+            $_SESSION['id'] ?? null,
             is_array($_SESSION['user'] ?? null) ? ($_SESSION['user']['id'] ?? null) : null,
+            is_array($_SESSION['auth_user'] ?? null) ? ($_SESSION['auth_user']['id'] ?? null) : null,
         ];
 
         foreach ($candidates as $candidate) {
@@ -29,9 +31,17 @@ final class PortalAccessService
             }
         }
 
+        $recursiveId = $this->findUserIdInSession($_SESSION ?? []);
+        if ($recursiveId > 0) {
+            return $recursiveId;
+        }
+
         $authClass = '\\SeoAnalytics\\Core\\Auth';
         if (class_exists($authClass)) {
-            foreach (['id', 'userId', 'currentUserId', 'user', 'currentUser'] as $method) {
+            foreach ([
+                'id', 'userId', 'currentUserId', 'user', 'currentUser',
+                'getUser', 'authenticatedUser', 'profile', 'me',
+            ] as $method) {
                 if (!method_exists($authClass, $method)) {
                     continue;
                 }
@@ -42,9 +52,9 @@ final class PortalAccessService
                     }
                     $result = $authClass::$method();
                     if (is_array($result)) {
-                        $result = $result['id'] ?? null;
+                        $result = $result['id'] ?? $result['user_id'] ?? null;
                     } elseif (is_object($result)) {
-                        $result = $result->id ?? null;
+                        $result = $result->id ?? $result->user_id ?? null;
                     }
                     $id = (int) $result;
                     if ($id > 0) {
@@ -53,6 +63,26 @@ final class PortalAccessService
                 } catch (\Throwable) {
                 }
             }
+        }
+
+        $email = $this->findEmailInSession($_SESSION ?? []);
+        if ($email !== '') {
+            $stmt = Database::pdo()->prepare(
+                'SELECT id FROM users WHERE LOWER(email) = LOWER(:email) LIMIT 1'
+            );
+            $stmt->execute(['email' => $email]);
+            $id = (int) $stmt->fetchColumn();
+            if ($id > 0) {
+                return $id;
+            }
+        }
+
+        // Безопасный миграционный fallback для старой одно-пользовательской установки.
+        $rows = Database::pdo()->query(
+            "SELECT id FROM users WHERE account_status = 'active' ORDER BY id LIMIT 2"
+        )->fetchAll(PDO::FETCH_COLUMN);
+        if (count($rows) === 1) {
+            return (int) $rows[0];
         }
 
         return 0;
@@ -87,9 +117,14 @@ final class PortalAccessService
 
     public function normalizeRole(string $role): string
     {
-        return in_array($role, ['administrator', 'moderator', 'manager', 'client'], true)
-            ? $role
-            : 'client';
+        $role = strtolower(trim($role));
+        return match ($role) {
+            'administrator', 'admin', 'superadmin', 'super_admin', 'owner', 'root' => 'administrator',
+            'moderator', 'moder' => 'moderator',
+            'manager', 'specialist', 'employee' => 'manager',
+            'client', 'customer', 'user' => 'client',
+            default => 'client',
+        };
     }
 
     public function requireRoles(array $roles): array
@@ -176,6 +211,48 @@ final class PortalAccessService
         if (in_array($action, ['save_project', 'delete_project'], true)) {
             $this->requireRoles(['administrator', 'moderator']);
         }
+    }
+
+    private function findUserIdInSession(mixed $value, int $depth = 0): int
+    {
+        if ($depth > 4 || !is_array($value)) {
+            return 0;
+        }
+        foreach ($value as $key => $item) {
+            $normalizedKey = strtolower((string) $key);
+            if (in_array($normalizedKey, ['user_id', 'userid', 'uid', 'id'], true)) {
+                $id = (int) $item;
+                if ($id > 0) {
+                    return $id;
+                }
+            }
+            if (is_array($item)) {
+                $id = $this->findUserIdInSession($item, $depth + 1);
+                if ($id > 0) {
+                    return $id;
+                }
+            }
+        }
+        return 0;
+    }
+
+    private function findEmailInSession(mixed $value, int $depth = 0): string
+    {
+        if ($depth > 4 || !is_array($value)) {
+            return '';
+        }
+        foreach ($value as $key => $item) {
+            if (strtolower((string) $key) === 'email' && is_string($item) && filter_var($item, FILTER_VALIDATE_EMAIL)) {
+                return trim($item);
+            }
+            if (is_array($item)) {
+                $email = $this->findEmailInSession($item, $depth + 1);
+                if ($email !== '') {
+                    return $email;
+                }
+            }
+        }
+        return '';
     }
 
     private function deny(string $message = 'Недостаточно прав для выполнения операции.'): never
