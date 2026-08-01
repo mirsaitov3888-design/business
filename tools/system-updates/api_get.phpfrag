@@ -1,0 +1,6 @@
+        // SYSTEM_UPDATES_MODULE_API_GET
+        if ($action === 'system_updates_status') {
+            $service = new SystemUpdateService();
+            Security::json($service->status());
+        }
+
