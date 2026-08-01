@@ -1,0 +1,148 @@
+        <!-- BITRIX24_STEP1 -->
+        <section id="section-bitrix24" class="section">
+            <div class="bitrix24-toolbar">
+                <div>
+                    <p class="eyebrow">Интеграция</p>
+                    <h2>Битрикс24</h2>
+                    <p class="muted">
+                        Проекты, компании, задачи с тегом для клиентского отчёта и фактические трудозатраты.
+                    </p>
+                </div>
+                <button type="button" class="button" id="bitrix24Refresh">
+                    Обновить данные
+                </button>
+            </div>
+
+            <?php if (!$project): ?>
+                <div class="empty-state">
+                    <h2>Сначала добавьте проект</h2>
+                    <p>Связь с Битрикс24 настраивается для активного проекта.</p>
+                </div>
+            <?php else: ?>
+                <div id="bitrix24Message"></div>
+
+                <div class="bitrix24-grid">
+                    <article class="panel bitrix24-settings-panel">
+                        <div class="panel-head">
+                            <div>
+                                <p class="eyebrow">Подключение</p>
+                                <h2>Связь проекта</h2>
+                            </div>
+                            <span id="bitrix24ConnectionBadge" class="bitrix24-badge neutral">
+                                Проверяем
+                            </span>
+                        </div>
+
+                        <div id="bitrix24Profile" class="bitrix24-profile muted">
+                            Загрузка сведений о вебхуке…
+                        </div>
+
+                        <form id="bitrix24LinkForm" class="settings-form">
+                            <input
+                                type="hidden"
+                                name="project_id"
+                                value="<?= (int) $project['id'] ?>"
+                            >
+
+                            <label>
+                                <span>Проект / рабочая группа Битрикс24</span>
+                                <select name="bitrix_group_id" required>
+                                    <option value="">Загрузка проектов…</option>
+                                </select>
+                            </label>
+
+                            <label>
+                                <span>Компания клиента в CRM</span>
+                                <select name="bitrix_company_id">
+                                    <option value="">Без привязки к компании</option>
+                                </select>
+                            </label>
+
+                            <label>
+                                <span>Тег задач для клиентского отчёта</span>
+                                <input
+                                    name="report_tag"
+                                    value="client_report"
+                                    maxlength="100"
+                                    placeholder="client_report"
+                                >
+                            </label>
+
+                            <button type="submit" class="button button-primary">
+                                Сохранить связь
+                            </button>
+                        </form>
+                    </article>
+
+                    <article class="panel bitrix24-sync-panel">
+                        <div class="panel-head">
+                            <div>
+                                <p class="eyebrow">Синхронизация</p>
+                                <h2>Задачи и трудозатраты</h2>
+                            </div>
+                        </div>
+
+                        <div class="form-grid bitrix24-period-grid">
+                            <label>
+                                <span>Период с</span>
+                                <input
+                                    type="date"
+                                    id="bitrix24DateFrom"
+                                    value="<?= $dateFrom ?>"
+                                >
+                            </label>
+                            <label>
+                                <span>Период по</span>
+                                <input
+                                    type="date"
+                                    id="bitrix24DateTo"
+                                    value="<?= $yesterday ?>"
+                                >
+                            </label>
+                        </div>
+
+                        <button type="button" class="button button-primary" id="bitrix24Sync">
+                            Синхронизировать задачи
+                        </button>
+
+                        <p class="muted bitrix24-sync-note">
+                            В выборку попадают задачи связанного проекта с указанным тегом. Время считается по отдельным записям трудозатрат, дата которых входит в выбранный период.
+                        </p>
+                    </article>
+                </div>
+
+                <div id="bitrix24Summary" class="bitrix24-summary"></div>
+
+                <article class="panel bitrix24-tasks-panel">
+                    <div class="panel-head">
+                        <div>
+                            <p class="eyebrow">Предпросмотр</p>
+                            <h2>Задачи клиентского отчёта</h2>
+                        </div>
+                        <span id="bitrix24LastSync" class="muted"></span>
+                    </div>
+
+                    <div class="table-scroll bitrix24-table-wrap">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Задача</th>
+                                    <th>Статус</th>
+                                    <th>Исполнитель</th>
+                                    <th>Теги</th>
+                                    <th class="num">Записей времени</th>
+                                    <th class="num">Время за период</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bitrix24TasksBody">
+                                <tr>
+                                    <td colspan="6" class="muted">
+                                        Настройте связь и выполните синхронизацию.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </article>
+            <?php endif; ?>
+        </section>
