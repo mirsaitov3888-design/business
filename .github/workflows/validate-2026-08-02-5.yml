@@ -1,0 +1,131 @@
+name: Validate 2026.08.02.5
+
+on:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate loader and embedded installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l updates/installers/2026.08.02.5.php
+
+          python3 - <<'PY'
+          import base64
+          import hashlib
+          import json
+          import re
+          import zlib
+          from pathlib import Path
+
+          path = Path('updates/installers/2026.08.02.5.php')
+          loader = path.read_text(encoding='utf-8')
+          match = re.search(r"\$payload = <<<'PAYLOAD'\n(.*?)\nPAYLOAD;", loader, re.S)
+          if not match:
+              raise SystemExit('Embedded payload not found')
+
+          compressed = base64.b64decode(''.join(match.group(1).split()), validate=True)
+          compressed_sha = hashlib.sha256(compressed).hexdigest()
+          expected_compressed = re.search(
+              r"hash_equals\('([0-9a-f]{64})', hash\('sha256', \$compressed\)\)",
+              loader,
+          ).group(1)
+          if compressed_sha != expected_compressed:
+              raise SystemExit(f'Compressed SHA mismatch: {compressed_sha}')
+
+          core = zlib.decompress(compressed)
+          core_sha = hashlib.sha256(core).hexdigest()
+          expected_core = re.search(
+              r"hash_equals\('([0-9a-f]{64})', hash\('sha256', \$core\)\)",
+              loader,
+          ).group(1)
+          if core_sha != expected_core:
+              raise SystemExit(f'Core SHA mismatch: {core_sha}')
+
+          Path('/tmp/update-2026.08.02.5-core.php').write_bytes(core)
+
+          manifest = json.loads(Path('updates/manifest.json').read_text(encoding='utf-8'))
+          installer_sha = hashlib.sha256(path.read_bytes()).hexdigest()
+          manifest_sha = manifest['latest']['sha256']
+          if installer_sha != manifest_sha:
+              raise SystemExit(
+                  f'Manifest SHA mismatch: file={installer_sha} manifest={manifest_sha}'
+              )
+
+          print(f'loader_sha256={installer_sha}')
+          print(f'compressed_sha256={compressed_sha}')
+          print(f'core_sha256={core_sha}')
+          PY
+
+          php -l /tmp/update-2026.08.02.5-core.php
+
+      - name: Run installer on portal fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=/tmp/portal-fixture-v5
+          mkdir -p "$root/app/Services" "$root/assets" "$root/storage/backups"
+
+          cat > "$root/app/Services/SystemUpdateWorker.php" <<'PHP'
+          <?php
+          /* SYSTEM_UPDATE_DIAGNOSTICS_V180202 */
+          PHP
+
+          cat > "$root/app/Services/SystemUpdateService.php" <<'PHP'
+          <?php
+          declare(strict_types=1);
+          final class SystemUpdateServiceFixture
+          {
+              public function manifest(): array
+              {
+                  $url = 'https://example.test/manifest.json';
+                  $body = $this->download($url, 30, 1024 * 1024);
+                  return json_decode($body, true) ?: [];
+              }
+
+              private function download(string $url, int $timeout, int $maxBytes): string
+              {
+                  return '{}';
+              }
+          }
+          PHP
+
+          cat > "$root/index.php" <<'PHP'
+          <?php declare(strict_types=1); ?>
+          <aside class="sidebar">
+              <button class="nav-link" data-section="clients">Клиенты</button>
+              <button class="nav-link" data-section="clients">Клиенты</button>
+              <button class="nav-link" data-section="reports">Отчёты</button>
+              <button class="nav-link" data-section="reports">Отчёты</button>
+          </aside>
+          <script src="/assets/app.js?v=37"></script>
+          PHP
+
+          cat > "$root/assets/app.js" <<'JS'
+          function systemUpdatesRenderProgress(rows) {
+              if (!rows.length) return;
+              const newestOperation = rows.at(0);
+              return newestOperation;
+          }
+          JS
+
+          (cd "$root" && php "$GITHUB_WORKSPACE/updates/installers/2026.08.02.5.php")
+
+          grep -q 'SYSTEM_UPDATE_MANIFEST_NO_CACHE_V180205' "$root/app/Services/SystemUpdateService.php"
+          grep -q 'SYSTEM_UPDATE_PROGRESS_SELECTION_V180205' "$root/assets/app.js"
+          grep -q 'NAV_RUNTIME_DEDUPE_V180205' "$root/assets/app.js"
+          test "$(grep -o 'data-section="clients"' "$root/index.php" | wc -l)" -eq 1
+          test "$(grep -o 'data-section="reports"' "$root/index.php" | wc -l)" -eq 1
+          grep -q '/assets/app.js?v=180205' "$root/index.php"
+          php -l "$root/app/Services/SystemUpdateService.php"
+          php -l "$root/index.php"
+
+          (cd "$root" && php "$GITHUB_WORKSPACE/updates/installers/2026.08.02.5.php")
