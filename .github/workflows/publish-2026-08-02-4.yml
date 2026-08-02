@@ -1,0 +1,100 @@
+name: Publish 2026.08.02.4
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-2026-08-02-4.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  validate-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate installer syntax
+        run: php -l updates/installers/2026.08.02.4.php
+
+      - name: Test installer on fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=/tmp/portal-fixture
+          mkdir -p "$root/app/Services" "$root/assets" "$root/storage/backups"
+          cat > "$root/app/Services/SystemUpdateWorker.php" <<'PHP'
+          <?php
+          /* SYSTEM_UPDATE_DIAGNOSTICS_V180202 */
+          PHP
+          cp tools/system-updates/SystemUpdateService.php "$root/app/Services/SystemUpdateService.php"
+          cat > "$root/index.php" <<'PHP'
+          <?php declare(strict_types=1); ?>
+          <aside class="sidebar">
+            <button class="nav-link" data-section="clients">Клиенты</button>
+            <button class="nav-link" data-section="clients">Клиенты</button>
+            <button class="nav-link" data-section="reports">Отчёты</button>
+          </aside>
+          <script src="/assets/app.js?v=33"></script>
+          PHP
+          cat > "$root/assets/app.js" <<'JS'
+          function systemUpdatesRenderProgress(rows) {
+              if (!rows.length) return;
+              const row = rows[0];
+              return row;
+          }
+          JS
+          (cd "$root" && php "$GITHUB_WORKSPACE/updates/installers/2026.08.02.4.php")
+          grep -q 'SYSTEM_UPDATE_MANIFEST_NO_CACHE_V180204' "$root/app/Services/SystemUpdateService.php"
+          grep -q 'SYSTEM_UPDATE_HISTORY_SELECTION_V180204' "$root/assets/app.js"
+          grep -q 'NAV_RUNTIME_DEDUPE_V180204' "$root/assets/app.js"
+          test "$(grep -o 'data-section="clients"' "$root/index.php" | wc -l)" -eq 1
+          grep -q '/assets/app.js?v=180204' "$root/index.php"
+          php -l "$root/app/Services/SystemUpdateService.php"
+          php -l "$root/index.php"
+
+      - name: Publish manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(sha256sum updates/installers/2026.08.02.4.php | cut -d' ' -f1)"
+          python3 - "$sha" <<'PY'
+          import json, sys
+          from pathlib import Path
+          sha = sys.argv[1]
+          changes = [
+              "Накопительно установлена автоматическая диагностика после обновлений",
+              "Манифест обновлений теперь запрашивается без кэша и с уникальным параметром",
+              "Старая неудачная попытка остаётся в журнале, но не показывается как текущее состояние",
+              "Повторяющиеся пункты левого меню удаляются из HTML и контролируются в браузере",
+              "Исправленный установщик 2026.08.02.3 применяется автоматически при необходимости",
+          ]
+          release = {
+              "version": "2026.08.02.4",
+              "title": "Актуализация обновлений и очистка навигации",
+              "released_at": "2026-08-02",
+              "installer_path": "updates/installers/2026.08.02.4.php",
+              "changelog": changes,
+          }
+          manifest = {
+              "channel": "stable",
+              "latest": {
+                  "version": release["version"],
+                  "title": release["title"],
+                  "released_at": release["released_at"],
+                  "changelog": changes,
+                  "installer_url": "https://raw.githubusercontent.com/mirsaitov3888-design/business/main/updates/installers/2026.08.02.4.php",
+                  "sha256": sha,
+              },
+          }
+          Path("updates/release.json").write_text(json.dumps(release, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          Path("updates/manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          print(sha)
+          PY
+          git config user.name "release-bot"
+          git config user.email "release-bot@users.noreply.github.com"
+          git add updates/release.json updates/manifest.json
+          git commit -m "Publish update 2026.08.02.4"
+          git push
