@@ -24,6 +24,20 @@ hashes = {
 head = (component_root / "installer-head.phpfrag").read_text(encoding="utf-8")
 run = (component_root / "installer-run.phpfrag").read_text(encoding="utf-8")
 template = head.rstrip() + "\n" + run.lstrip()
+
+client_column_marker = "        ['notes', 'TEXT NULL'],\n    ] as [$column, $definition]) {"
+client_column_replacement = (
+    "        ['notes', 'TEXT NULL'],\n"
+    "        ['created_at', 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP'],\n"
+    "        ['updated_at', 'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP'],\n"
+    "    ] as [$column, $definition]) {"
+)
+if template.count(client_column_marker) != 1:
+    raise SystemExit(
+        f"LK2 clients timestamp marker: expected 1, found {template.count(client_column_marker)}"
+    )
+template = template.replace(client_column_marker, client_column_replacement, 1)
+
 template = template.replace("__LK2_VERSION__", VERSION)
 template = template.replace(
     "__LK2_HASHES_JSON__",
