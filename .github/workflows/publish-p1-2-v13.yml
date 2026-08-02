@@ -92,3 +92,5 @@ jobs:
           git add updates/installers/2026.08.02.13.php updates/release.json updates/manifest.json
           git commit -m "Publish P1.2 goal classification"
           git push
+
+# publication trigger: 2026-08-02T20:40:00+08:00
