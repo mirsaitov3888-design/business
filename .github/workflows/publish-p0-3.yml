@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - ".github/workflows/publish-p0-3.yml"
+  pull_request:
 
 permissions:
   contents: write
@@ -156,6 +157,7 @@ jobs:
           (cd "$root" && php "$GITHUB_WORKSPACE/updates/installers/2026.08.02.8.php")
 
       - name: Publish stable manifest
+        if: github.event_name == 'push'
         shell: bash
         run: |
           set -euo pipefail
@@ -206,6 +208,7 @@ jobs:
           PY
 
       - name: Commit release
+        if: github.event_name == 'push'
         shell: bash
         run: |
           set -euo pipefail
