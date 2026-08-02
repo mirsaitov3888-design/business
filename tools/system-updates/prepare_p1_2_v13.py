@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 path = Path('tools/system-updates/build_p1_2.py')
@@ -75,35 +76,6 @@ replace_once(
     'tracked assets',
 )
 
-old_injection = """    $index = p12iRead($indexPath);
-    if (!str_contains($index, 'P1_GOALS_ASSETS_V180212')) {{
-        $headCount = 0;
-        $index = str_replace(
-            '</head>',
-            \"    <!-- P1_GOALS_ASSETS_V180212 -->\\n\"
-            . \"    <link rel=\\\"stylesheet\\\" href=\\\"/assets/p1-goals.css?v=180212\\\">\\n\"
-            . '</head>',
-            $index,
-            $headCount
-        );
-        if ($headCount !== 1) {{
-            throw new RuntimeException('Не удалось подключить стили P1.2.');
-        }}
-
-        $bodyCount = 0;
-        $index = str_replace(
-            '</body>',
-            \"    <script defer src=\\\"/assets/p1-goals.js?v=180212\\\"></script>\\n\"
-            . '</body>',
-            $index,
-            $bodyCount
-        );
-        if ($bodyCount !== 1) {{
-            throw new RuntimeException('Не удалось подключить JavaScript P1.2.');
-        }}
-        p12iWrite($indexPath, $index);
-    }}
-"""
 new_injection = """    $appCss = p12iRead($appCssPath);
     if (!str_contains($appCss, 'P1_GOALS_BUNDLED_V180213')) {{
         $goalCss = $payloads['assets/p1-goals.css'] ?? '';
@@ -122,7 +94,15 @@ new_injection = """    $appCss = p12iRead($appCssPath);
         p12iWrite($appJsPath, $appJs);
     }}
 """
-replace_once(old_injection, new_injection, 'asset injection block')
+pattern = re.compile(
+    r"    \$index = p12iRead\(\$indexPath\);\n.*?"
+    r"(?=    \$schema = p12iRead\(\$schemaPath\);)",
+    re.DOTALL,
+)
+text, count = pattern.subn(new_injection, text, count=1)
+if count != 1:
+    raise SystemExit(f'asset injection block: expected one match, found {count}')
+
 replace_once(
     "        $root . '/p1-goals-api.php',\n"
     "        $root . '/index.php',",
