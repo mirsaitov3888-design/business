@@ -217,3 +217,5 @@ jobs:
           git add updates/release.json updates/manifest.json
           git commit -m "Publish P0.3 final role normalization"
           git push
+
+# Publish trigger after successful PR validation: 2026-08-02T09:57:00Z
