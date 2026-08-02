@@ -28,3 +28,5 @@ text = text.replace(old_path, new_path, 1)
 
 path.write_text(text, encoding='utf-8')
 print('P0.5 validation fixture corrected')
+
+# Trigger rerun: 2026-08-02T10:17:00Z
