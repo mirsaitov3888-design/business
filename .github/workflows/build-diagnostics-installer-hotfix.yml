@@ -7,6 +7,10 @@ on:
     paths:
       - ".github/workflows/build-diagnostics-installer-hotfix.yml"
       - "tools/system-updates/build_2026_08_02_3.py"
+  pull_request:
+    paths:
+      - ".github/workflows/build-diagnostics-installer-hotfix.yml"
+      - "tools/system-updates/build_2026_08_02_3.py"
 
 permissions:
   contents: write
