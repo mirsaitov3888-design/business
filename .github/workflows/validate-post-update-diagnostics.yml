@@ -3,15 +3,15 @@ name: Validate post-update diagnostics
 on:
   pull_request:
     paths:
-      - "updates/installers/2026.08.02.2.php"
+      - "updates/installers/2026.08.02.3.php"
       - "tools/system-updates/SystemDiagnosticsBridge.php"
       - "tools/diagnostics/index.php"
       - ".github/workflows/validate-post-update-diagnostics.yml"
   push:
     branches:
-      - feature/post-update-diagnostics
+      - main
     paths:
-      - "updates/installers/2026.08.02.2.php"
+      - "updates/installers/2026.08.02.3.php"
       - "tools/system-updates/SystemDiagnosticsBridge.php"
       - "tools/diagnostics/index.php"
       - ".github/workflows/validate-post-update-diagnostics.yml"
@@ -27,7 +27,7 @@ jobs:
 
       - name: Validate PHP syntax
         run: |
-          php -l updates/installers/2026.08.02.2.php
+          php -l updates/installers/2026.08.02.3.php
           php -l tools/system-updates/SystemDiagnosticsBridge.php
           php -l tools/diagnostics/index.php
 
@@ -40,27 +40,35 @@ jobs:
           import zlib
           from pathlib import Path
 
-          loader = Path('updates/installers/2026.08.02.2.php').read_text(encoding='utf-8')
+          loader = Path('updates/installers/2026.08.02.3.php').read_text(encoding='utf-8')
           match = re.search(r"\$payload = <<<'PAYLOAD'\n(.*?)\nPAYLOAD;", loader, re.S)
           if not match:
               raise SystemExit('Embedded payload not found')
 
           compressed = base64.b64decode(''.join(match.group(1).split()), validate=True)
           compressed_sha = hashlib.sha256(compressed).hexdigest()
-          expected_compressed = '782ae1133f2068abc3db8b551466e665bf92bc4761919c15bb4d7333ef0ffdfb'
+          expected_compressed = '1eb9393db39a9c80a9e8dd0a445b5597fc85043fad0a06c8b0b81366adb85a66'
           if compressed_sha != expected_compressed:
               raise SystemExit(f'Compressed SHA mismatch: {compressed_sha}')
 
           core = zlib.decompress(compressed)
           core_sha = hashlib.sha256(core).hexdigest()
-          expected_core = '9a906bacfb9556efc2f4c3646d974a2eca732168c62fc6688e48467575711246'
+          expected_core = '95cdd4bbfee59b79474177a7fd4f4334a94919209e3b20aba2ae1145596495e1'
           if core_sha != expected_core:
               raise SystemExit(f'Core SHA mismatch: {core_sha}')
 
-          Path('/tmp/2026.08.02.2-core.php').write_bytes(core)
+          core_text = core.decode('utf-8')
+          if '"                    ${' in core_text or '. "                    ${' in core_text:
+              raise SystemExit('Unescaped JavaScript template expression in PHP string')
+
+          Path('/tmp/2026.08.02.3-core.php').write_bytes(core)
           print(f'Embedded core validated: {len(core)} bytes')
           PY
-          php -l /tmp/2026.08.02.2-core.php
+          php -l /tmp/2026.08.02.3-core.php
+
+      - name: Validate installer checksum
+        run: |
+          test "$(sha256sum updates/installers/2026.08.02.3.php | cut -d' ' -f1)" = "69a05f93fce3fc5f1b8e6164f18fcf8e3b5498d805f4933149d01e395d088e91"
 
       - name: Validate component checksums
         run: |
