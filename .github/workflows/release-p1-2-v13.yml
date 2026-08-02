@@ -97,3 +97,5 @@ jobs:
             updates/manifest.json
           git commit -m "Build P1.2 v13 release artifacts"
           git push origin HEAD:release/p1-2-v13
+
+# release trigger: 2026-08-02T20:43:00+08:00
