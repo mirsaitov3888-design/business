@@ -98,3 +98,5 @@ jobs:
           git add updates/release.json updates/manifest.json
           git commit -m "Publish update 2026.08.02.4"
           git push
+
+# trigger: 2026-08-02T06:51:00Z
