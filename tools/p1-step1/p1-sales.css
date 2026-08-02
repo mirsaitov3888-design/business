@@ -1,0 +1,221 @@
+
+/* P1_SALES_V180211_CSS */
+.p1-sales-section {
+    display: none;
+}
+
+.p1-sales-section.active {
+    display: block;
+}
+
+.p1-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 20px;
+    margin-bottom: 18px;
+}
+
+.p1-head h2,
+.p1-head p {
+    margin-bottom: 0;
+}
+
+.p1-project-badge {
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.p1-filter-panel {
+    margin-bottom: 18px;
+}
+
+.p1-filter-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.p1-filter-row label {
+    min-width: 190px;
+    display: grid;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.p1-summary {
+    margin-bottom: 18px;
+}
+
+.p1-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(320px, .65fr);
+    gap: 18px;
+    align-items: start;
+    margin-bottom: 18px;
+}
+
+.p1-editor-panel,
+.p1-import-panel {
+    min-width: 0;
+}
+
+.p1-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.p1-checks {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #f8fafc;
+}
+
+.p1-checks label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.p1-checks input {
+    width: auto;
+}
+
+.p1-file-field {
+    display: grid;
+    gap: 8px;
+}
+
+.p1-file-field input {
+    padding: 14px;
+    border: 1px dashed #aebbd0;
+    border-radius: 12px;
+    background: #f8fafc;
+}
+
+.p1-import-actions {
+    flex-wrap: wrap;
+}
+
+.p1-import-history {
+    display: grid;
+    gap: 8px;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+}
+
+.p1-import-item {
+    display: grid;
+    gap: 3px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #f8fafc;
+}
+
+.p1-import-item span {
+    font-weight: 700;
+    word-break: break-word;
+}
+
+.p1-import-item small {
+    color: var(--muted);
+}
+
+.p1-records-panel {
+    min-width: 0;
+}
+
+.p1-records-table td {
+    vertical-align: middle;
+}
+
+.p1-records-table td small {
+    display: block;
+    margin-top: 3px;
+    color: var(--muted);
+}
+
+.p1-status {
+    display: inline-flex;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: #eef2f6;
+    color: #475467;
+    font-size: 10px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.p1-status-qualified,
+.p1-status-meeting,
+.p1-status-offer {
+    background: #eff8ff;
+    color: #175cd3;
+}
+
+.p1-status-contract,
+.p1-status-paid {
+    background: #ecfdf3;
+    color: #067647;
+}
+
+.p1-status-lost {
+    background: #fef3f2;
+    color: #b42318;
+}
+
+.p1-row-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+}
+
+.p1-row-actions .button {
+    padding: 7px 9px;
+    font-size: 11px;
+}
+
+@media (max-width: 1050px) {
+    .p1-workspace {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .p1-head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .p1-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .p1-filter-row {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .p1-filter-row label {
+        min-width: 0;
+    }
+
+    .p1-row-actions {
+        flex-direction: column;
+    }
+}
