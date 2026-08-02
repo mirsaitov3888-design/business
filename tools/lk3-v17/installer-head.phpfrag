@@ -1,0 +1,197 @@
+<?php
+declare(strict_types=1);
+
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit("Запустите через PHP CLI.\n");
+}
+
+const LK3_VERSION = '__LK3_VERSION__';
+const LK3_JS_MARKER = 'LK3_PROJECT_SOURCES_BUNDLED_V180217';
+const LK3_REPOSITORY_MARKER = 'LK3_SELECTED_PROJECT_V180217';
+
+function lk3out(string $message = ''): void
+{
+    fwrite(STDOUT, $message . PHP_EOL);
+}
+
+function lk3read(string $path): string
+{
+    $content = file_get_contents($path);
+    if (!is_string($content)) {
+        throw new RuntimeException('Не удалось прочитать файл: ' . $path);
+    }
+    return $content;
+}
+
+function lk3write(string $path, string $content): void
+{
+    $directory = dirname($path);
+    if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+        throw new RuntimeException('Не удалось создать каталог: ' . $directory);
+    }
+    $temporary = $path . '.tmp.' . bin2hex(random_bytes(5));
+    if (file_put_contents($temporary, $content, LOCK_EX) === false) {
+        throw new RuntimeException('Не удалось записать файл: ' . $temporary);
+    }
+    if (!rename($temporary, $path)) {
+        @unlink($temporary);
+        throw new RuntimeException('Не удалось заменить файл: ' . $path);
+    }
+}
+
+function lk3lint(string $path): void
+{
+    if (!function_exists('exec')) {
+        return;
+    }
+    $output = [];
+    $code = 0;
+    exec(
+        escapeshellarg(PHP_BINARY) . ' -l ' . escapeshellarg($path) . ' 2>&1',
+        $output,
+        $code
+    );
+    if ($code !== 0) {
+        throw new RuntimeException(
+            'Ошибка PHP-синтаксиса в ' . $path . ':\n' . implode("\n", $output)
+        );
+    }
+}
+
+function lk3tableExists(PDO $pdo, string $table): bool
+{
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*) FROM information_schema.TABLES '
+        . 'WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table_name'
+    );
+    $stmt->execute(['table_name' => $table]);
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+function lk3columnExists(PDO $pdo, string $table, string $column): bool
+{
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*) FROM information_schema.COLUMNS '
+        . 'WHERE TABLE_SCHEMA = DATABASE() '
+        . 'AND TABLE_NAME = :table_name AND COLUMN_NAME = :column_name'
+    );
+    $stmt->execute([
+        'table_name' => $table,
+        'column_name' => $column,
+    ]);
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+function lk3addColumn(
+    PDO $pdo,
+    string $table,
+    string $column,
+    string $definition,
+    array &$addedColumns
+): void {
+    if (!lk3tableExists($pdo, $table) || lk3columnExists($pdo, $table, $column)) {
+        return;
+    }
+    $safeTable = str_replace('`', '', $table);
+    $safeColumn = str_replace('`', '', $column);
+    $pdo->exec(
+        'ALTER TABLE `' . $safeTable . '` ADD COLUMN `'
+        . $safeColumn . '` ' . $definition
+    );
+    $addedColumns[] = [$safeTable, $safeColumn];
+}
+
+function lk3decodePayload(): array
+{
+    $encoded = <<<'PAYLOAD'
+__LK3_PAYLOAD_B64__
+PAYLOAD;
+    $json = base64_decode(preg_replace('/\s+/', '', $encoded) ?? '', true);
+    if (!is_string($json) || $json === '') {
+        throw new RuntimeException('Не удалось декодировать пакет LK.3.');
+    }
+    if (!hash_equals('__LK3_PAYLOAD_SHA__', hash('sha256', $json))) {
+        throw new RuntimeException('Не совпала SHA-256 пакета LK.3.');
+    }
+    $payload = json_decode($json, true);
+    if (!is_array($payload)) {
+        throw new RuntimeException('Некорректный пакет LK.3.');
+    }
+    $result = [];
+    foreach ($payload as $key => $item) {
+        if (!is_array($item)) {
+            throw new RuntimeException('Некорректный компонент LK.3: ' . $key);
+        }
+        $content = base64_decode((string) ($item['content'] ?? ''), true);
+        if (!is_string($content)) {
+            throw new RuntimeException('Не удалось декодировать компонент LK.3: ' . $key);
+        }
+        if (!hash_equals((string) ($item['sha256'] ?? ''), hash('sha256', $content))) {
+            throw new RuntimeException('Не совпала SHA-256 компонента LK.3: ' . $key);
+        }
+        $result[(string) $key] = $content;
+    }
+    return $result;
+}
+
+function lk3injectFirstActive(string $content): string
+{
+    if (str_contains($content, LK3_REPOSITORY_MARKER)) {
+        return $content;
+    }
+
+    $injection = <<<'PHPBLOCK'
+
+        /* LK3_SELECTED_PROJECT_V180217 */
+        try {
+            if (class_exists(\SeoAnalytics\Services\ProjectSourceService::class)) {
+                $lk3SelectedProject = (new \SeoAnalytics\Services\ProjectSourceService())
+                    ->selectedLegacyProject();
+                if ((int) ($lk3SelectedProject['id'] ?? 0) > 0) {
+                    return $lk3SelectedProject;
+                }
+            }
+        } catch (\Throwable) {
+            // Фоновые и системные процессы без пользовательской сессии
+            // продолжают использовать исходный первый активный проект.
+        }
+PHPBLOCK;
+
+    $tokens = token_get_all($content);
+    $result = '';
+    $afterFunction = false;
+    $target = false;
+    $inserted = 0;
+
+    foreach ($tokens as $token) {
+        $id = is_array($token) ? $token[0] : null;
+        $text = is_array($token) ? $token[1] : $token;
+
+        if ($id === T_FUNCTION) {
+            $afterFunction = true;
+            $target = false;
+        } elseif ($afterFunction && $id === T_STRING) {
+            $target = $text === 'firstActive';
+            $afterFunction = false;
+        } elseif ($afterFunction && is_string($text) && trim($text) !== '' && $text !== '&') {
+            $afterFunction = false;
+        }
+
+        $result .= $text;
+
+        if ($target && $text === '{') {
+            $result .= $injection;
+            $target = false;
+            $inserted++;
+        }
+    }
+
+    if ($inserted !== 1) {
+        throw new RuntimeException(
+            'Не удалось безопасно изменить ProjectRepository::firstActive(); вставок: '
+            . $inserted
+        );
+    }
+    return $result;
+}

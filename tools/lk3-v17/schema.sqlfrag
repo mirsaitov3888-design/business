@@ -1,0 +1,40 @@
+
+-- LK3_PROJECT_SOURCES_SCHEMA_V180217
+CREATE TABLE IF NOT EXISTS project_source_links (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    project_id BIGINT UNSIGNED NOT NULL,
+    site_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    source_type VARCHAR(50) NOT NULL,
+    external_id VARCHAR(190) NOT NULL,
+    settings_json MEDIUMTEXT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'active',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uniq_project_source_link (
+        project_id,
+        site_id,
+        source_type,
+        external_id
+    ),
+    KEY idx_project_source_status (
+        project_id,
+        status,
+        source_type
+    ),
+    KEY idx_project_source_site (site_id, status)
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS report_site_links (
+    report_id BIGINT UNSIGNED NOT NULL,
+    project_id BIGINT UNSIGNED NOT NULL,
+    site_id BIGINT UNSIGNED NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (report_id, site_id),
+    KEY idx_report_site_project (project_id, report_id),
+    KEY idx_report_site_site (site_id, report_id)
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
