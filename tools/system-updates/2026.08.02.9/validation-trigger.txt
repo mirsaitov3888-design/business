@@ -1,0 +1,1 @@
+Validate P0.4 retention policy on a disposable fixture.
