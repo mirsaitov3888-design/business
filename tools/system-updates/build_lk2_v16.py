@@ -38,6 +38,32 @@ if template.count(client_column_marker) != 1:
     )
 template = template.replace(client_column_marker, client_column_replacement, 1)
 
+link_column_marker = (
+    "    $pdo->exec('UPDATE project_sites SET sort_order = id * 10 WHERE sort_order = 0');"
+)
+link_column_replacement = (
+    "    lk2addColumn(\n"
+    "        $pdo,\n"
+    "        'client_users',\n"
+    "        'created_at',\n"
+    "        'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP',\n"
+    "        $addedColumns\n"
+    "    );\n"
+    "    lk2addColumn(\n"
+    "        $pdo,\n"
+    "        'project_client_links',\n"
+    "        'created_at',\n"
+    "        'DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP',\n"
+    "        $addedColumns\n"
+    "    );\n\n"
+    "    $pdo->exec('UPDATE project_sites SET sort_order = id * 10 WHERE sort_order = 0');"
+)
+if template.count(link_column_marker) != 1:
+    raise SystemExit(
+        f"LK2 link timestamp marker: expected 1, found {template.count(link_column_marker)}"
+    )
+template = template.replace(link_column_marker, link_column_replacement, 1)
+
 template = template.replace("__LK2_VERSION__", VERSION)
 template = template.replace(
     "__LK2_HASHES_JSON__",
