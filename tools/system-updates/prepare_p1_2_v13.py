@@ -3,6 +3,54 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+component_path = Path('tools/p1-step2/ConversionGoalRepository.php')
+component = component_path.read_text(encoding='utf-8')
+
+alias_replacements = {
+    'SUM(active = 1 AND classification = "lead") AS lead,':
+        'SUM(active = 1 AND classification = "lead") AS lead_count,',
+    'SUM(active = 1 AND classification = "assisted") AS assisted,':
+        'SUM(active = 1 AND classification = "assisted") AS assisted_count,',
+    'SUM(active = 1 AND classification = "micro") AS micro,':
+        'SUM(active = 1 AND classification = "micro") AS micro_count,',
+    'SUM(active = 1 AND classification = "unclassified") AS unclassified':
+        'SUM(active = 1 AND classification = "unclassified") AS unclassified_count',
+}
+for old, new in alias_replacements.items():
+    count = component.count(old)
+    if count != 1:
+        raise SystemExit(f'MySQL alias patch failed for {old!r}: found {count}')
+    component = component.replace(old, new, 1)
+
+old_counts = """        foreach ([
+            'total',
+            'active',
+            'lead',
+            'assisted',
+            'micro',
+            'unclassified',
+        ] as $key) {
+            $counts[$key] = (int) ($counts[$key] ?? 0);
+        }
+
+        return $counts;
+"""
+new_counts = """        $counts = [
+            'total' => (int) ($counts['total'] ?? 0),
+            'active' => (int) ($counts['active'] ?? 0),
+            'lead' => (int) ($counts['lead_count'] ?? 0),
+            'assisted' => (int) ($counts['assisted_count'] ?? 0),
+            'micro' => (int) ($counts['micro_count'] ?? 0),
+            'unclassified' => (int) ($counts['unclassified_count'] ?? 0),
+        ];
+
+        return $counts;
+"""
+if component.count(old_counts) != 1:
+    raise SystemExit('Goal count normalization block was not found exactly once')
+component = component.replace(old_counts, new_counts, 1)
+component_path.write_text(component, encoding='utf-8')
+
 path = Path('tools/system-updates/build_p1_2.py')
 text = path.read_text(encoding='utf-8')
 
