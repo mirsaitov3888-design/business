@@ -8,6 +8,7 @@ use SeoAnalytics\Services\PortalAccessService;
 use SeoAnalytics\Services\SalesImportService;
 
 require __DIR__ . '/app/bootstrap.php';
+require_once __DIR__ . '/app/Services/ZipArchivePolyfill.php';
 
 header('X-Content-Type-Options: nosniff');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
@@ -123,6 +124,7 @@ try {
             'capabilities' => [
                 'csv' => true,
                 'xlsx' => class_exists(ZipArchive::class),
+                'xlsx_native_zip' => extension_loaded('zip'),
                 'max_rows' => 5000,
                 'max_file_mb' => 10,
             ],
