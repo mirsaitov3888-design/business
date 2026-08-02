@@ -1,0 +1,99 @@
+name: Build P1.2 v13 release
+
+on:
+  push:
+    branches:
+      - release/p1-2-v13
+    paths:
+      - ".github/workflows/release-p1-2-v13.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+        with:
+          ref: release/p1-2-v13
+
+      - name: Build checked installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/system-updates/prepare_p1_2_v13.py
+          python3 tools/system-updates/build_p1_2.py
+          php -l updates/installers/2026.08.02.13.php
+          grep -q "const P12_VERSION = '2026.08.02.13'" updates/installers/2026.08.02.13.php
+          grep -q 'P1_GOALS_BUNDLED_V180213' updates/installers/2026.08.02.13.php
+          grep -q 'lead_count' updates/installers/2026.08.02.13.php
+          ! grep -q 'P1_GOALS_ASSETS_V180212' updates/installers/2026.08.02.13.php
+
+      - name: Build release metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(sha256sum updates/installers/2026.08.02.13.php | cut -d' ' -f1)"
+          python3 - "$sha" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          sha = sys.argv[1]
+          changes = [
+              "В разделе «Продажи и экономика» добавлена вкладка классификации целей",
+              "Цели разделяются на лиды, вспомогательные конверсии и микроконверсии",
+              "Не классифицированные цели не участвуют в будущих экономических расчётах",
+              "Добавлена синхронизация целей из настроек активного проекта",
+              "Ручная классификация сохраняется при повторной синхронизации",
+              "Для каждой цели сохраняются источник, внешний ID, название, активность и комментарий",
+              "Все создания, изменения и удаления записываются в отдельный журнал",
+              "Интерфейс подключается через assets/app.css и assets/app.js без изменения index.php",
+              "Исправлена совместимость агрегирующих запросов с MySQL 8.4",
+              "Повторная установка не дублирует ресурсы и не сбрасывает классификацию"
+          ]
+          release = {
+              "version": "2026.08.02.13",
+              "title": "P1.2 — классификация целей и конверсий",
+              "released_at": "2026-08-02",
+              "installer_path": "updates/installers/2026.08.02.13.php",
+              "changelog": changes,
+          }
+          manifest = {
+              "channel": "stable",
+              "latest": {
+                  "version": release["version"],
+                  "title": release["title"],
+                  "released_at": release["released_at"],
+                  "changelog": changes,
+                  "installer_url": "https://raw.githubusercontent.com/mirsaitov3888-design/business/main/updates/installers/2026.08.02.13.php",
+                  "sha256": sha,
+              },
+          }
+          Path('updates/release.json').write_text(
+              json.dumps(release, ensure_ascii=False, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          Path('updates/manifest.json').write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          print(f'installer_sha256={sha}')
+          PY
+
+      - name: Commit release artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "release-builder"
+          git config user.email "release-builder@users.noreply.github.com"
+          git add \
+            updates/installers/2026.08.02.13.php \
+            updates/release.json \
+            updates/manifest.json
+          git commit -m "Build P1.2 v13 release artifacts"
+          git push origin HEAD:release/p1-2-v13
