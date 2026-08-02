@@ -1,0 +1,1 @@
+Validate P0.3 final role normalization on MySQL fixture.
