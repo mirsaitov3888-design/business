@@ -1,0 +1,66 @@
+
+-- P1_GOALS_SCHEMA_V180212
+CREATE TABLE IF NOT EXISTS conversion_goals (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    project_id BIGINT UNSIGNED NOT NULL,
+    source_system VARCHAR(30) NOT NULL DEFAULT 'manual',
+    external_id VARCHAR(190) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    classification VARCHAR(30) NOT NULL DEFAULT 'unclassified',
+    active TINYINT(1) NOT NULL DEFAULT 1,
+    notes TEXT NULL,
+    created_by BIGINT UNSIGNED NOT NULL,
+    updated_by BIGINT UNSIGNED NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uniq_conversion_goal_external (
+        project_id,
+        source_system,
+        external_id
+    ),
+    KEY idx_conversion_goals_classification (
+        project_id,
+        active,
+        classification
+    ),
+    CONSTRAINT fk_conversion_goals_project
+        FOREIGN KEY (project_id) REFERENCES projects(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_conversion_goals_created_by
+        FOREIGN KEY (created_by) REFERENCES users(id)
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_conversion_goals_updated_by
+        FOREIGN KEY (updated_by) REFERENCES users(id)
+        ON DELETE RESTRICT
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS conversion_goal_changes (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    goal_id BIGINT UNSIGNED NULL,
+    project_id BIGINT UNSIGNED NOT NULL,
+    user_id BIGINT UNSIGNED NOT NULL,
+    action_key VARCHAR(30) NOT NULL,
+    before_json MEDIUMTEXT NULL,
+    after_json MEDIUMTEXT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_conversion_goal_changes_project (
+        project_id,
+        created_at
+    ),
+    KEY idx_conversion_goal_changes_goal (goal_id),
+    CONSTRAINT fk_conversion_goal_changes_goal
+        FOREIGN KEY (goal_id) REFERENCES conversion_goals(id)
+        ON DELETE SET NULL,
+    CONSTRAINT fk_conversion_goal_changes_project
+        FOREIGN KEY (project_id) REFERENCES projects(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_conversion_goal_changes_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE RESTRICT
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
