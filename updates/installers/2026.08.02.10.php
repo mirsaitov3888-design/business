@@ -62,7 +62,7 @@ function p05runAcceptance(string $root, string $servicePath): array
     try {
         require_once $root . '/app/bootstrap.php';
         require_once $servicePath;
-        $service = new \SeoAnalytics\Services\Bitrix24AcceptanceService();
+        $service = \SeoAnalytics\Services\Bitrix24AcceptanceService::create();
         return $service->run();
     } catch (Throwable $exception) {
         return [
@@ -139,8 +139,8 @@ final class Bitrix24AcceptanceService
     private const ELAPSED_SAMPLE_LIMIT = 100;
 
     public function __construct(
-        private readonly Bitrix24Client $client = new Bitrix24Client(),
-        private readonly PDO $pdo = new PDO('sqlite::memory:')
+        private readonly Bitrix24Client $client,
+        private readonly PDO $pdo
     ) {
     }
 
@@ -210,7 +210,14 @@ final class Bitrix24AcceptanceService
             }
 
             foreach ($rows as $row) {
-                $links[] = $this->acceptLink($row, $counts, $warnings);
+                $linkReport = $this->acceptLink($row, $counts, $warnings);
+                if (!empty($linkReport['error'])) {
+                    $errors[] = 'Связанный проект #'
+                        . (int) ($linkReport['project_id'] ?? 0)
+                        . ': '
+                        . (string) $linkReport['error'];
+                }
+                $links[] = $linkReport;
             }
         }
 
