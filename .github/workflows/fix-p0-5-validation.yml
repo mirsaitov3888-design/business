@@ -39,3 +39,5 @@ jobs:
           fi
           git commit -m "Fix P0.5 validation fixture bootstrap"
           git push
+
+# Retry marker: 2026-08-02T10:19:00Z
