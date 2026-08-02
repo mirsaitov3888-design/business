@@ -1,0 +1,205 @@
+
+/* P1_GOALS_V180212_CSS */
+.p1-tabs {
+    display: inline-flex;
+    gap: 6px;
+    margin: 0 0 18px;
+    padding: 5px;
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    background: #f8fafc;
+}
+
+.p1-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 0;
+    border-radius: 9px;
+    padding: 9px 13px;
+    background: transparent;
+    color: var(--muted);
+    font-weight: 750;
+    cursor: pointer;
+}
+
+.p1-tab.active {
+    background: #fff;
+    color: var(--text);
+    box-shadow: 0 2px 8px rgba(16, 24, 40, .08);
+}
+
+#p1UnclassifiedBadge {
+    display: none;
+    min-width: 20px;
+    height: 20px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 0 6px;
+    background: #f04438;
+    color: #fff;
+    font-size: 10px;
+}
+
+#p1UnclassifiedBadge.visible {
+    display: inline-flex;
+}
+
+.p1-tab-pane {
+    display: none;
+}
+
+.p1-tab-pane.active {
+    display: block;
+}
+
+.p12-intro-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr);
+    gap: 18px;
+    margin-bottom: 18px;
+}
+
+.p12-intro p {
+    max-width: 850px;
+}
+
+.p12-legend {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 17px;
+}
+
+.p12-legend > div {
+    display: grid;
+    gap: 4px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: #f8fafc;
+}
+
+.p12-legend span {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.p12-sync-panel .button {
+    margin-top: 10px;
+}
+
+.p12-summary {
+    margin-bottom: 18px;
+}
+
+.p12-warning-card {
+    border-color: #fdb022;
+    background: #fffaeb;
+}
+
+.p12-layout {
+    display: grid;
+    grid-template-columns: minmax(330px, .7fr) minmax(0, 1.3fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.p12-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.p12-name-field {
+    grid-column: span 2;
+}
+
+.p12-active-field {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #f8fafc;
+    color: var(--text) !important;
+}
+
+.p12-active-field input {
+    width: auto;
+}
+
+.p12-table td {
+    vertical-align: middle;
+}
+
+.p12-table td small {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+}
+
+.p12-inline-classification {
+    min-width: 190px;
+    padding: 8px 9px;
+    font-size: 12px;
+}
+
+.p12-active-toggle {
+    border: 0;
+    border-radius: 999px;
+    padding: 6px 9px;
+    background: #f2f4f7;
+    color: #667085;
+    font-size: 10px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.p12-active-toggle.active {
+    background: #ecfdf3;
+    color: #067647;
+}
+
+.p12-inactive {
+    opacity: .64;
+}
+
+.p12-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+}
+
+.p12-actions .button {
+    padding: 7px 9px;
+    font-size: 11px;
+}
+
+@media (max-width: 1100px) {
+    .p12-intro-grid,
+    .p12-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .p1-tabs {
+        display: grid;
+        width: 100%;
+    }
+
+    .p12-legend,
+    .p12-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .p12-name-field {
+        grid-column: auto;
+    }
+
+    .p12-actions {
+        flex-direction: column;
+    }
+}
