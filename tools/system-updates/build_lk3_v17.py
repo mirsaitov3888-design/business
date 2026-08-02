@@ -19,7 +19,26 @@ components = {
 
 payload: dict[str, dict[str, str]] = {}
 for key, path in components.items():
-    raw = path.read_bytes()
+    text = path.read_text(encoding="utf-8")
+    if key == "service":
+        old = """            'status' => in_array(
+                (string) ($data['status'] ?? 'active'),
+                ['active', 'paused', 'archived'],
+                true
+            ) ? (string) $data['status'] : 'active',
+"""
+        new = """            'status' => in_array(
+                (string) ($data['status'] ?? 'active'),
+                ['active', 'paused', 'archived'],
+                true
+            ) ? (string) ($data['status'] ?? 'active') : 'active',
+"""
+        if text.count(old) != 1:
+            raise SystemExit(
+                f"LK3 source status marker: expected 1, found {text.count(old)}"
+            )
+        text = text.replace(old, new, 1)
+    raw = text.encode("utf-8")
     payload[key] = {
         "sha256": hashlib.sha256(raw).hexdigest(),
         "content": base64.b64encode(raw).decode("ascii"),
