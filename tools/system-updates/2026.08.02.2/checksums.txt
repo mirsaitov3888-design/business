@@ -1,0 +1,4 @@
+b09b123cebc09c0be649197d5cbc16b7ba0ad2d9a2939969478b15be0093caf7  updates/installers/2026.08.02.2.php
+9a906bacfb9556efc2f4c3646d974a2eca732168c62fc6688e48467575711246  embedded-core.php
+380baa9013ba7832f9bae98187774c09ce4f4f8f395cb320b4b16d6054435663  tools/system-updates/SystemDiagnosticsBridge.php
+d58ca3433c206580672d305cbd18a198ea1d06cb283457e8ffe13ab970b6b0ec  tools/diagnostics/index.php
