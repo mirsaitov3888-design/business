@@ -1,0 +1,94 @@
+name: Publish P0.5
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/publish-p0-5.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l updates/installers/2026.08.02.10.php
+          grep -q 'BITRIX24_ACCEPTANCE_P05_V180210' updates/installers/2026.08.02.10.php
+          grep -q 'Bitrix24AcceptanceService::create()' updates/installers/2026.08.02.10.php
+          grep -q 'tasks_per_project' updates/installers/2026.08.02.10.php
+          grep -q 'elapsedItemsBatch' updates/installers/2026.08.02.10.php
+          grep -q 'bitrix24-acceptance-latest.json' updates/installers/2026.08.02.10.php
+          ! grep -q 'curl_close(' updates/installers/2026.08.02.10.php
+
+      - name: Publish stable manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(sha256sum updates/installers/2026.08.02.10.php | cut -d' ' -f1)"
+          python3 - "$sha" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          sha = sys.argv[1]
+          changes = [
+              "Добавлена автоматическая read-only приёмка подключения Битрикс24 без изменения кэша отчётов",
+              "Проверяются профиль, проекты, компании и все связанные с порталом проекты Битрикс24",
+              "Лимит получения задач одного проекта увеличен с 500 до 5000",
+              "Теги задач фильтруются локально и больше не зависят от нестабильного серверного фильтра Битрикс24",
+              "Теги распознаются без учёта регистра в строковом, списочном и объектном формате",
+              "Проверяется пакетное получение записей трудозатрат с постраничным резервным режимом",
+              "Проверяется получение ответственных сотрудников и авторов записей времени",
+              "Для каждой связи сохраняются количество задач, совпадения по тегу, трудозатраты, период и ошибки",
+              "Полный результат сохраняется в storage/system-audits/bitrix24-acceptance-latest.json",
+              "Добавлен повторяемый CLI-запуск bin/bitrix24_acceptance.php",
+          ]
+          release = {
+              "version": "2026.08.02.10",
+              "title": "P0.5 — усиление и приёмка Битрикс24",
+              "released_at": "2026-08-02",
+              "installer_path": "updates/installers/2026.08.02.10.php",
+              "changelog": changes,
+          }
+          manifest = {
+              "channel": "stable",
+              "latest": {
+                  "version": release["version"],
+                  "title": release["title"],
+                  "released_at": release["released_at"],
+                  "changelog": changes,
+                  "installer_url": "https://raw.githubusercontent.com/mirsaitov3888-design/business/main/updates/installers/2026.08.02.10.php",
+                  "sha256": sha,
+              },
+          }
+          Path('updates/release.json').write_text(
+              json.dumps(release, ensure_ascii=False, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          Path('updates/manifest.json').write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          print(f'installer_sha256={sha}')
+          PY
+
+      - name: Commit release
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "release-builder"
+          git config user.email "release-builder@users.noreply.github.com"
+          git add updates/release.json updates/manifest.json
+          git commit -m "Publish P0.5 Bitrix24 acceptance"
+          git push
