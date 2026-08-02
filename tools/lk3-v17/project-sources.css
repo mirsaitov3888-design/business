@@ -1,0 +1,104 @@
+
+/* LK3_PROJECT_SOURCES_V180217 */
+.lk3-project-sources {
+    margin: 0 0 18px;
+    padding: 14px 16px;
+    border: 1px solid var(--line, #dfe5ec);
+    border-radius: 16px;
+    background: var(--card, #fff);
+}
+
+.lk3-project-sources__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.lk3-project-sources__head > div {
+    display: grid;
+    gap: 2px;
+}
+
+.lk3-project-sources__head span,
+.lk3-project-sources__head small,
+.lk3-source-site__name small {
+    color: var(--muted, #687386);
+    font-size: 12px;
+}
+
+.lk3-project-sources__sites {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 10px;
+}
+
+.lk3-source-site {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--line, #dfe5ec);
+    border-radius: 12px;
+    background: var(--surface, #f7f9fc);
+}
+
+.lk3-source-site__name {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+}
+
+.lk3-source-site__name strong,
+.lk3-source-site__name small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lk3-source-site__badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 5px;
+}
+
+.lk3-source-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.lk3-source-badge.is-ready {
+    background: rgba(28, 154, 104, .12);
+    color: #14714f;
+}
+
+.lk3-source-badge.is-empty {
+    background: rgba(123, 132, 148, .12);
+    color: var(--muted, #687386);
+}
+
+.lk3-project-sources__empty {
+    color: var(--muted, #687386);
+    font-size: 13px;
+}
+
+@media (max-width: 760px) {
+    .lk3-project-sources__head,
+    .lk3-source-site {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .lk3-source-site__badges {
+        justify-content: flex-start;
+    }
+}
