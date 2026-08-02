@@ -1,0 +1,45 @@
+name: Build P0.5
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "tools/system-updates/fix_p05_installer.py"
+      - ".github/workflows/build-p0-5.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Correct and lint installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/system-updates/fix_p05_installer.py
+          php -l updates/installers/2026.08.02.10.php
+          grep -q 'Bitrix24AcceptanceService::create()' updates/installers/2026.08.02.10.php
+          grep -q 'private readonly PDO $pdo' updates/installers/2026.08.02.10.php
+          ! grep -q "new PDO('sqlite::memory:')" updates/installers/2026.08.02.10.php
+
+      - name: Commit corrected installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "release-builder"
+          git config user.email "release-builder@users.noreply.github.com"
+          git add updates/installers/2026.08.02.10.php
+          if git diff --cached --quiet; then
+            echo "Installer is already current."
+            exit 0
+          fi
+          git commit -m "Correct P0.5 acceptance database wiring"
+          git push
