@@ -91,6 +91,7 @@ try {
 }
 
 PortalAccessService::$testUserId = 3;
+$clientDenied = false;
 try {
     (new ProjectSourceService())->saveSource([
         'project_id' => 101,
@@ -98,8 +99,11 @@ try {
         'source_type' => 'manual',
         'external_id' => 'client-write',
     ]);
-    throw new RuntimeException('Client was allowed to change sources.');
 } catch (RuntimeException) {
+    $clientDenied = true;
+}
+if (!$clientDenied) {
+    throw new RuntimeException('Client was allowed to change sources.');
 }
 
 PortalAccessService::$testUserId = 999;
