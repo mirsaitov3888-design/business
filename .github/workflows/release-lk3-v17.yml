@@ -1,0 +1,126 @@
+name: Build LK3 v17 release
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: portal
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Prepare runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq php-mysql mysql-client
+          php -m | grep -q pdo_mysql
+
+      - name: Run full LK3 integration and build installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/lk3-v17/run_ci.sh
+          php -l updates/installers/2026.08.02.17.php
+          grep -q "const LK3_VERSION = '2026.08.02.17'" updates/installers/2026.08.02.17.php
+          grep -q 'LK3_SELECTED_PROJECT_V180217' updates/installers/2026.08.02.17.php
+          grep -q 'LK3_PROJECT_SOURCES_BUNDLED_V180217' updates/installers/2026.08.02.17.php
+
+      - name: Build release metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(sha256sum updates/installers/2026.08.02.17.php | cut -d' ' -f1)"
+          python3 - "$sha" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          sha = sys.argv[1]
+          changes = [
+              "Старые разделы портала получают выбранный проект из глобального контекста вместо первого активного проекта",
+              "Фоновые процессы и диагностика без пользовательской сессии сохраняют прежний безопасный fallback",
+              "Добавлен единый реестр источников на уровне проекта и отдельного сайта",
+              "В интерфейсе отображается карта сайтов выбранного проекта и количество подключённых источников",
+              "Для каждого сайта показываются привязанные счётчики Яндекс Метрики и ID Яндекс Вебмастера",
+              "Добавлена область сайтов для каждого отчёта выбранного проекта",
+              "Цели получили область project или site и могут быть привязаны к конкретному сайту",
+              "Проектные источники можно привязывать к проекту целиком или к отдельному сайту",
+              "Администратор, модератор и назначенный менеджер могут управлять источниками; клиент работает только на просмотр",
+              "Подстановка сайта или проекта без доступа блокируется на сервере",
+              "Отчёты и цели разных проектов больше не должны смешиваться через firstActive()",
+              "index.php не изменяется; интерфейс подключается через assets/app.js и assets/app.css",
+              "Установщик поддерживает старый Node.js, создаёт резервную копию и автоматически откатывается при ошибке",
+              "Проверены MySQL 8.4, двойная установка, выбранный проект, системный fallback, роли, отчёты и цели",
+              "Суммирование Метрики и Вебмастера по всем сайтам будет включено следующим этапом LK.3B"
+          ]
+          release = {
+              "version": "2026.08.02.17",
+              "title": "LK.3A — выбранный проект и источники",
+              "released_at": "2026-08-02",
+              "installer_path": "updates/installers/2026.08.02.17.php",
+              "changelog": changes,
+          }
+          manifest = {
+              "channel": "stable",
+              "latest": {
+                  "version": release["version"],
+                  "title": release["title"],
+                  "released_at": release["released_at"],
+                  "changelog": changes,
+                  "installer_url": "https://raw.githubusercontent.com/mirsaitov3888-design/business/main/updates/installers/2026.08.02.17.php",
+                  "sha256": sha,
+              },
+          }
+          Path("updates/release.json").write_text(
+              json.dumps(release, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          Path("updates/manifest.json").write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print(f"installer_sha256={sha}")
+          PY
+
+      - name: Commit release artifacts to PR branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "release-builder"
+          git config user.email "release-builder@users.noreply.github.com"
+          git add \
+            updates/installers/2026.08.02.17.php \
+            updates/release.json \
+            updates/manifest.json
+          if git diff --cached --quiet; then
+            echo "Release artifacts are already current."
+            exit 0
+          fi
+          git commit -m "Build LK3 v17 release artifacts"
+          git push origin HEAD:${{ github.head_ref }}
