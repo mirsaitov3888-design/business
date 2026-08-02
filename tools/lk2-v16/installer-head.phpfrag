@@ -1,0 +1,153 @@
+<?php
+declare(strict_types=1);
+
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit("Запустите через PHP CLI.\n");
+}
+
+const LK2_VERSION = '__LK2_VERSION__';
+const LK2_JS_MARKER = 'LK2_CLIENT_STRUCTURE_BUNDLED_V180216';
+const LK2_CSS_MARKER = 'LK2_CLIENT_STRUCTURE_BUNDLED_V180216';
+
+function lk2out(string $message = ''): void
+{
+    fwrite(STDOUT, $message . PHP_EOL);
+}
+
+function lk2read(string $path): string
+{
+    $content = file_get_contents($path);
+    if (!is_string($content)) {
+        throw new RuntimeException('Не удалось прочитать файл: ' . $path);
+    }
+    return $content;
+}
+
+function lk2write(string $path, string $content): void
+{
+    $directory = dirname($path);
+    if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+        throw new RuntimeException('Не удалось создать каталог: ' . $directory);
+    }
+    $temporary = $path . '.tmp.' . bin2hex(random_bytes(5));
+    if (file_put_contents($temporary, $content, LOCK_EX) === false) {
+        throw new RuntimeException('Не удалось записать временный файл: ' . $temporary);
+    }
+    if (!rename($temporary, $path)) {
+        @unlink($temporary);
+        throw new RuntimeException('Не удалось заменить файл: ' . $path);
+    }
+}
+
+function lk2lint(string $path): void
+{
+    if (!function_exists('exec')) {
+        return;
+    }
+    $output = [];
+    $code = 0;
+    exec(escapeshellarg(PHP_BINARY) . ' -l ' . escapeshellarg($path) . ' 2>&1', $output, $code);
+    if ($code !== 0) {
+        throw new RuntimeException(
+            'Ошибка PHP-синтаксиса в ' . $path . ':\n' . implode("\n", $output)
+        );
+    }
+}
+
+function lk2tableExists(PDO $pdo, string $table): bool
+{
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*) FROM information_schema.TABLES '
+        . 'WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table_name'
+    );
+    $stmt->execute(['table_name' => $table]);
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+function lk2columnExists(PDO $pdo, string $table, string $column): bool
+{
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*) FROM information_schema.COLUMNS '
+        . 'WHERE TABLE_SCHEMA = DATABASE() '
+        . 'AND TABLE_NAME = :table_name AND COLUMN_NAME = :column_name'
+    );
+    $stmt->execute(['table_name' => $table, 'column_name' => $column]);
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+function lk2addColumn(
+    PDO $pdo,
+    string $table,
+    string $column,
+    string $definition,
+    array &$addedColumns
+): void {
+    if (lk2columnExists($pdo, $table, $column)) {
+        return;
+    }
+    $safeTable = str_replace('`', '', $table);
+    $safeColumn = str_replace('`', '', $column);
+    $pdo->exec(
+        'ALTER TABLE `' . $safeTable . '` ADD COLUMN `' . $safeColumn . '` ' . $definition
+    );
+    $addedColumns[] = [$safeTable, $safeColumn];
+}
+
+function lk2loadComponent(string $key, string $filename, string $expectedSha): string
+{
+    $localRoot = trim((string) getenv('LK2_COMPONENT_ROOT'));
+    if ($localRoot !== '') {
+        $localPath = rtrim($localRoot, '/\\') . DIRECTORY_SEPARATOR . $filename;
+        if (is_file($localPath)) {
+            $content = lk2read($localPath);
+            if (!hash_equals($expectedSha, hash('sha256', $content))) {
+                throw new RuntimeException('Не совпала SHA-256 локального компонента LK.2: ' . $key);
+            }
+            return $content;
+        }
+    }
+
+    $url = 'https://raw.githubusercontent.com/mirsaitov3888-design/business/main/'
+        . 'tools/lk2-v16/' . rawurlencode($filename);
+    $context = stream_context_create([
+        'http' => [
+            'timeout' => 120,
+            'follow_location' => 1,
+            'user_agent' => 'Mirsaitov LK2 Installer/1.0',
+        ],
+        'https' => [
+            'verify_peer' => true,
+            'verify_peer_name' => true,
+        ],
+    ]);
+    $content = file_get_contents($url, false, $context);
+    if (!is_string($content) || $content === '') {
+        throw new RuntimeException('Не удалось загрузить компонент LK.2: ' . $key);
+    }
+    if (!hash_equals($expectedSha, hash('sha256', $content))) {
+        throw new RuntimeException('Не совпала SHA-256 компонента LK.2: ' . $key);
+    }
+    return $content;
+}
+
+$hashes = json_decode('__LK2_HASHES_JSON__', true);
+if (!is_array($hashes)) {
+    throw new RuntimeException('Некорректная карта SHA-256 LK.2.');
+}
+
+$componentFiles = [
+    'service' => 'ClientStructureService.php',
+    'api' => 'client-structure-api.php',
+    'js' => 'client-structure.js',
+    'css' => 'client-structure.css',
+    'schema' => 'schema.sqlfrag',
+];
+$components = [];
+foreach ($componentFiles as $key => $filename) {
+    $expectedSha = (string) ($hashes[$key] ?? '');
+    if ($expectedSha === '') {
+        throw new RuntimeException('Не указана SHA-256 компонента LK.2: ' . $key);
+    }
+    $components[$key] = lk2loadComponent($key, $filename, $expectedSha);
+}
