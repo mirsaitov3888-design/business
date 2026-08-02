@@ -52,3 +52,5 @@ jobs:
           grep -q '/assets/app.js?v=180204' "$root/index.php"
           php -l "$root/app/Services/SystemUpdateService.php"
           php -l "$root/index.php"
+
+# trusted workflow trigger
