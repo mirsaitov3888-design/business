@@ -25,7 +25,7 @@ text = text.replace(version_old, version_new, 1)
 text = text.replace("lk-context-v14-", "lk-context-v15-")
 
 node_start = "    if (function_exists('exec')) {\n        $node = [];\n"
-node_end = "\n    $pdo = Database::pdo();"
+node_end = "\n    if (!lk14tableExists($pdo, 'project_sites')) {"
 start = text.find(node_start)
 if start < 0:
     raise SystemExit("Node.js validation block start was not found")
