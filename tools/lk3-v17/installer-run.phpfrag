@@ -1,0 +1,243 @@
+
+$root = getcwd() ?: '';
+$required = [
+    $root . '/app/bootstrap.php',
+    $root . '/app/Services/PortalAccessService.php',
+    $root . '/app/Services/PortalContextService.php',
+    $root . '/app/Repositories/ProjectRepository.php',
+    $root . '/assets/app.js',
+    $root . '/assets/app.css',
+    $root . '/sql/schema.sql',
+];
+foreach ($required as $path) {
+    if (!is_file($path)) {
+        throw new RuntimeException('Не найден обязательный файл LK.3: ' . $path);
+    }
+}
+
+$appJsPath = $root . '/assets/app.js';
+$appCssPath = $root . '/assets/app.css';
+$schemaPath = $root . '/sql/schema.sql';
+$repositoryPath = $root . '/app/Repositories/ProjectRepository.php';
+$servicePath = $root . '/app/Services/ProjectSourceService.php';
+$apiPath = $root . '/project-sources-api.php';
+
+if (!str_contains(lk3read($appJsPath), 'LK2_CLIENT_STRUCTURE_BUNDLED_V180216')) {
+    throw new RuntimeException(
+        'Версия ' . LK3_VERSION . ' требует установленный LK.2 / 2026.08.02.16.'
+    );
+}
+
+$payload = lk3decodePayload();
+$tracked = [
+    'app/Repositories/ProjectRepository.php',
+    'app/Services/ProjectSourceService.php',
+    'project-sources-api.php',
+    'assets/app.js',
+    'assets/app.css',
+    'sql/schema.sql',
+];
+$backupDirectory = $root . '/storage/backups/lk3-project-sources-'
+    . date('Ymd-His') . '-' . bin2hex(random_bytes(3));
+if (!mkdir($backupDirectory, 0700, true) && !is_dir($backupDirectory)) {
+    throw new RuntimeException('Не удалось создать резервную копию LK.3.');
+}
+
+$manifest = [];
+foreach ($tracked as $relative) {
+    $source = $root . '/' . $relative;
+    $manifest[$relative] = is_file($source);
+    if (!is_file($source)) {
+        continue;
+    }
+    $destination = $backupDirectory . '/' . $relative;
+    $directory = dirname($destination);
+    if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
+        throw new RuntimeException('Не удалось создать каталог копии LK.3.');
+    }
+    if (!copy($source, $destination)) {
+        throw new RuntimeException('Не удалось сохранить копию LK.3: ' . $relative);
+    }
+}
+
+require_once $root . '/app/bootstrap.php';
+$pdo = \SeoAnalytics\Core\Database::pdo();
+$tableState = [
+    'project_source_links' => lk3tableExists($pdo, 'project_source_links'),
+    'report_site_links' => lk3tableExists($pdo, 'report_site_links'),
+];
+$addedColumns = [];
+
+try {
+    lk3write($servicePath, (string) ($payload['service'] ?? ''));
+    lk3write($apiPath, (string) ($payload['api'] ?? ''));
+
+    $repository = lk3injectFirstActive(lk3read($repositoryPath));
+    lk3write($repositoryPath, $repository);
+
+    $appJs = lk3read($appJsPath);
+    if (!str_contains($appJs, LK3_JS_MARKER)) {
+        $appJs = rtrim($appJs) . PHP_EOL . PHP_EOL
+            . '/* ' . LK3_JS_MARKER . ' */' . PHP_EOL
+            . trim((string) ($payload['js'] ?? '')) . PHP_EOL;
+        lk3write($appJsPath, $appJs);
+    }
+
+    $appCss = lk3read($appCssPath);
+    if (!str_contains($appCss, LK3_JS_MARKER)) {
+        $appCss = rtrim($appCss) . PHP_EOL . PHP_EOL
+            . '/* ' . LK3_JS_MARKER . ' */' . PHP_EOL
+            . trim((string) ($payload['css'] ?? '')) . PHP_EOL;
+        lk3write($appCssPath, $appCss);
+    }
+
+    $schemaFragment = (string) ($payload['schema'] ?? '');
+    $schema = lk3read($schemaPath);
+    if (!str_contains($schema, 'LK3_PROJECT_SOURCES_SCHEMA_V180217')) {
+        $schema = rtrim($schema) . PHP_EOL . PHP_EOL
+            . trim($schemaFragment) . PHP_EOL;
+        lk3write($schemaPath, $schema);
+    }
+
+    $sql = preg_replace('/^\s*--.*$/m', '', $schemaFragment) ?? $schemaFragment;
+    $statements = preg_split('/;\s*(?=CREATE TABLE)/i', trim($sql)) ?: [];
+    foreach ($statements as $statement) {
+        $statement = trim($statement);
+        if ($statement !== '') {
+            $pdo->exec(rtrim($statement, "; \t\r\n"));
+        }
+    }
+
+    lk3addColumn(
+        $pdo,
+        'conversion_goals',
+        'site_id',
+        'BIGINT UNSIGNED NULL',
+        $addedColumns
+    );
+    lk3addColumn(
+        $pdo,
+        'conversion_goals',
+        'scope_type',
+        "VARCHAR(20) NOT NULL DEFAULT 'project'",
+        $addedColumns
+    );
+    lk3addColumn(
+        $pdo,
+        'reports',
+        'client_id',
+        'BIGINT UNSIGNED NULL',
+        $addedColumns
+    );
+    lk3addColumn(
+        $pdo,
+        'reports',
+        'project_id',
+        'BIGINT UNSIGNED NULL',
+        $addedColumns
+    );
+    lk3addColumn(
+        $pdo,
+        'reports',
+        'site_id',
+        'BIGINT UNSIGNED NULL',
+        $addedColumns
+    );
+    lk3addColumn(
+        $pdo,
+        'reports',
+        'scope_type',
+        "VARCHAR(20) NOT NULL DEFAULT 'project'",
+        $addedColumns
+    );
+
+    if (lk3tableExists($pdo, 'conversion_goals')) {
+        $pdo->exec(
+            "UPDATE conversion_goals
+             SET scope_type = 'project'
+             WHERE scope_type IS NULL OR scope_type = ''"
+        );
+    }
+
+    lk3lint($repositoryPath);
+    lk3lint($servicePath);
+    lk3lint($apiPath);
+
+    if (function_exists('exec')) {
+        $probeOutput = [];
+        $probeCode = 0;
+        $probe = "const value = null; value?.property; const fallback = value ?? 'ok';";
+        exec('node -e ' . escapeshellarg($probe) . ' 2>&1', $probeOutput, $probeCode);
+        if ($probeCode === 0) {
+            $nodeOutput = [];
+            $nodeCode = 0;
+            exec('node --check ' . escapeshellarg($appJsPath) . ' 2>&1', $nodeOutput, $nodeCode);
+            if ($nodeCode !== 0) {
+                throw new RuntimeException(
+                    'Ошибка JavaScript LK.3: ' . implode("\n", $nodeOutput)
+                );
+            }
+        } else {
+            lk3out('Проверка JavaScript через Node.js пропущена: серверная версия Node.js устарела.');
+        }
+    }
+
+    if (substr_count(lk3read($repositoryPath), LK3_REPOSITORY_MARKER) !== 1) {
+        throw new RuntimeException('ProjectRepository изменён некорректно.');
+    }
+    if (substr_count(lk3read($appJsPath), LK3_JS_MARKER) !== 1) {
+        throw new RuntimeException('JavaScript LK.3 подключён некорректно.');
+    }
+    if (!lk3tableExists($pdo, 'project_source_links')
+        || !lk3tableExists($pdo, 'report_site_links')) {
+        throw new RuntimeException('Таблицы областей источников LK.3 не созданы.');
+    }
+
+    $projectCount = (int) $pdo->query(
+        'SELECT COUNT(DISTINCT project_id) FROM project_sites'
+    )->fetchColumn();
+    $siteCount = (int) $pdo->query(
+        'SELECT COUNT(*) FROM project_sites WHERE status <> "archived"'
+    )->fetchColumn();
+
+    lk3out('LK.3A: выбранный проект и источники разделов установлены.');
+    lk3out('- старые разделы получают проект из глобального контекста;');
+    lk3out('- системные процессы без сессии сохраняют исходный fallback;');
+    lk3out('- проектов с сайтами: ' . $projectCount . ';');
+    lk3out('- активных сайтов: ' . $siteCount . ';');
+    lk3out('- добавлены области сайтов для отчётов и целей;');
+    lk3out('- резервная копия: ' . $backupDirectory . ';');
+} catch (Throwable $exception) {
+    foreach ($manifest as $relative => $existed) {
+        $target = $root . '/' . $relative;
+        $backup = $backupDirectory . '/' . $relative;
+        if ($existed && is_file($backup)) {
+            @copy($backup, $target);
+        } elseif (!$existed && is_file($target)) {
+            @unlink($target);
+        }
+    }
+
+    foreach (array_reverse($addedColumns) as [$table, $column]) {
+        try {
+            if (lk3columnExists($pdo, $table, $column)) {
+                $pdo->exec(
+                    'ALTER TABLE `' . $table . '` DROP COLUMN `' . $column . '`'
+                );
+            }
+        } catch (Throwable) {
+        }
+    }
+    foreach ($tableState as $table => $existed) {
+        try {
+            if (!$existed && lk3tableExists($pdo, $table)) {
+                $pdo->exec('DROP TABLE `' . str_replace('`', '', $table) . '`');
+            }
+        } catch (Throwable) {
+        }
+    }
+
+    fwrite(STDERR, 'ОШИБКА: ' . $exception->getMessage() . PHP_EOL);
+    fwrite(STDERR, 'Файлы LK.3 восстановлены из резервной копии.' . PHP_EOL);
+    exit(1);
+}
