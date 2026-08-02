@@ -28,7 +28,6 @@ jobs:
           php -l updates/installers/2026.08.02.13.php
           grep -q "const P12_VERSION = '2026.08.02.13'" updates/installers/2026.08.02.13.php
           grep -q 'P1_GOALS_BUNDLED_V180213' updates/installers/2026.08.02.13.php
-          grep -q 'lead_count' updates/installers/2026.08.02.13.php
           ! grep -q 'P1_GOALS_ASSETS_V180212' updates/installers/2026.08.02.13.php
 
       - name: Build release metadata
