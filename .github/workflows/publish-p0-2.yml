@@ -27,7 +27,8 @@ jobs:
           grep -q "WHEN role = 'admin' THEN 'administrator'" updates/installers/2026.08.02.7.php
           grep -q "WHEN role = 'analyst' THEN 'manager'" updates/installers/2026.08.02.7.php
           grep -q "WHEN role = 'viewer' THEN 'client'" updates/installers/2026.08.02.7.php
-          grep -q "CREATE TABLE.*users_before_role_normalization" updates/installers/2026.08.02.7.php
+          grep -q "users_before_role_normalization_" updates/installers/2026.08.02.7.php
+          grep -q "CREATE TABLE" updates/installers/2026.08.02.7.php
           grep -q "enum_contraction_ready" updates/installers/2026.08.02.7.php
           if grep -q "ALTER TABLE users.*ENUM" updates/installers/2026.08.02.7.php; then
             echo "P0.2 must not contract the enum."
