@@ -1,0 +1,40 @@
+name: Extract update core
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/extract-update-core.yml"
+      - "updates/installers/2026.08.02.2.php"
+
+permissions:
+  contents: read
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract embedded PHP core
+        run: |
+          python3 - <<'PY'
+          import base64
+          import re
+          import zlib
+          from pathlib import Path
+
+          source = Path('updates/installers/2026.08.02.2.php').read_text(encoding='utf-8')
+          match = re.search(r"\$payload = <<<'PAYLOAD'\n(.*?)\nPAYLOAD;", source, re.S)
+          if not match:
+              raise SystemExit('payload not found')
+          compressed = base64.b64decode(''.join(match.group(1).split()), validate=True)
+          core = zlib.decompress(compressed)
+          Path('/tmp/2026.08.02.2-core.php').write_bytes(core)
+          PY
+          php -l /tmp/2026.08.02.2-core.php
+      - name: Upload core
+        uses: actions/upload-artifact@v4
+        with:
+          name: update-core-2026-08-02-2
+          path: /tmp/2026.08.02.2-core.php
+          retention-days: 1
