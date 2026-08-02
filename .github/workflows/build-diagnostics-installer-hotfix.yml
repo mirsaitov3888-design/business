@@ -30,13 +30,15 @@ jobs:
           python3 tools/system-updates/build_2026_08_02_3.py
           php -l updates/installers/2026.08.02.3.php
 
-      - name: Commit generated hotfix
+      - name: Commit generated installer files
         run: |
           set -euo pipefail
-          rm .github/workflows/build-diagnostics-installer-hotfix.yml
-          rm tools/system-updates/build_2026_08_02_3.py
           git config user.name "diagnostics-hotfix-bot"
           git config user.email "diagnostics-hotfix-bot@users.noreply.github.com"
-          git add -A
+          git add \
+            updates/installers/2026.08.02.3.php \
+            updates/release.json \
+            updates/manifest.json \
+            tools/system-updates/2026.08.02.3/checksums.txt
           git commit -m "Fix post-update diagnostics installer runtime interpolation"
           git push origin HEAD:fix/post-update-diagnostics-2026-08-02-3
