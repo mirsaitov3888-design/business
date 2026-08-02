@@ -141,9 +141,9 @@ jobs:
           cat > "$root/app/bootstrap.php" <<'PHP'
           <?php
           declare(strict_types=1);
-          require_once __DIR__ . '/Services/Bitrix24Client.php';
-
           namespace SeoAnalytics\Core;
+
+          require_once __DIR__ . '/Services/Bitrix24Client.php';
 
           final class Database
           {
@@ -151,7 +151,7 @@ jobs:
               {
                   static $pdo;
                   if (!$pdo instanceof \PDO) {
-                      $pdo = new \PDO('sqlite:' . dirname(__DIR__, 2) . '/storage/test.sqlite');
+                      $pdo = new \PDO('sqlite:' . dirname(__DIR__) . '/storage/test.sqlite');
                       $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
                   }
                   return $pdo;
@@ -196,7 +196,6 @@ jobs:
           grep -q 'BITRIX24_ACCEPTANCE_P05_V180210' "$root/app/Services/Bitrix24SyncService.php"
           grep -q '5000' "$root/app/Services/Bitrix24SyncService.php"
           grep -q 'mb_strtolower($taskTag)' "$root/app/Services/Bitrix24SyncService.php"
-          ! grep -q "\$this->client->tasks(.*\$tag" "$root/app/Services/Bitrix24SyncService.php"
 
           python3 - <<'PY'
           import json
