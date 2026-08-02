@@ -1,0 +1,64 @@
+
+-- P1_SALES_SCHEMA_V180211
+CREATE TABLE IF NOT EXISTS sales_import_batches (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    project_id BIGINT UNSIGNED NOT NULL,
+    created_by BIGINT UNSIGNED NOT NULL,
+    original_name VARCHAR(255) NOT NULL,
+    file_type VARCHAR(20) NOT NULL,
+    rows_total INT UNSIGNED NOT NULL DEFAULT 0,
+    rows_imported INT UNSIGNED NOT NULL DEFAULT 0,
+    rows_skipped INT UNSIGNED NOT NULL DEFAULT 0,
+    rows_failed INT UNSIGNED NOT NULL DEFAULT 0,
+    report_json MEDIUMTEXT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_sales_import_project (project_id, created_at),
+    CONSTRAINT fk_sales_import_project
+        FOREIGN KEY (project_id) REFERENCES projects(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_sales_import_user
+        FOREIGN KEY (created_by) REFERENCES users(id)
+        ON DELETE RESTRICT
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS sales_records (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    project_id BIGINT UNSIGNED NOT NULL,
+    import_batch_id BIGINT UNSIGNED NULL,
+    created_by BIGINT UNSIGNED NOT NULL,
+    external_id VARCHAR(190) NULL,
+    occurred_at DATE NOT NULL,
+    channel_key VARCHAR(40) NOT NULL DEFAULT 'other',
+    customer_name VARCHAR(255) NOT NULL DEFAULT '',
+    status VARCHAR(30) NOT NULL DEFAULT 'lead',
+    contract_amount DECIMAL(18,2) NOT NULL DEFAULT 0,
+    paid_amount DECIMAL(18,2) NOT NULL DEFAULT 0,
+    gross_margin_percent DECIMAL(8,2) NULL,
+    qualified TINYINT(1) NOT NULL DEFAULT 0,
+    contract TINYINT(1) NOT NULL DEFAULT 0,
+    source_type VARCHAR(20) NOT NULL DEFAULT 'manual',
+    notes TEXT NULL,
+    fingerprint CHAR(64) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uniq_sales_record_fingerprint (project_id, fingerprint),
+    KEY idx_sales_records_period (project_id, occurred_at),
+    KEY idx_sales_records_status (project_id, status),
+    KEY idx_sales_records_channel (project_id, channel_key),
+    KEY idx_sales_records_import (import_batch_id),
+    CONSTRAINT fk_sales_records_project
+        FOREIGN KEY (project_id) REFERENCES projects(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_sales_records_import
+        FOREIGN KEY (import_batch_id) REFERENCES sales_import_batches(id)
+        ON DELETE SET NULL,
+    CONSTRAINT fk_sales_records_user
+        FOREIGN KEY (created_by) REFERENCES users(id)
+        ON DELETE RESTRICT
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
