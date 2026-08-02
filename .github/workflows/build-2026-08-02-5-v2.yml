@@ -1,0 +1,120 @@
+name: Build update 2026.08.02.5 v2
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/build-2026-08-02-5-v2.yml"
+      - "tools/system-updates/build_2026_08_02_5.py"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build installer and manifest
+        run: |
+          set -euo pipefail
+          python3 tools/system-updates/build_2026_08_02_5.py
+          php -l updates/installers/2026.08.02.5.php
+
+      - name: Test installer on portal fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=/tmp/portal-fixture-v5-final
+          mkdir -p "$root/app/Services" "$root/assets" "$root/storage/backups"
+
+          cat > "$root/app/Services/SystemUpdateWorker.php" <<'PHP'
+          <?php
+          /* SYSTEM_UPDATE_DIAGNOSTICS_V180202 */
+          PHP
+
+          cat > "$root/app/Services/SystemUpdateService.php" <<'PHP'
+          <?php
+          declare(strict_types=1);
+          final class SystemUpdateServiceFixture
+          {
+              public function manifest(): array
+              {
+                  $url = 'https://example.test/manifest.json';
+                  $body = $this->download($url, 30, 1024 * 1024);
+                  return json_decode($body, true) ?: [];
+              }
+              private function download(string $url, int $timeout, int $maxBytes): string
+              {
+                  return '{}';
+              }
+          }
+          PHP
+
+          cat > "$root/index.php" <<'PHP'
+          <?php declare(strict_types=1); ?>
+          <aside class="sidebar">
+              <button class="nav-link" data-section="clients">Клиенты</button>
+              <button class="nav-link" data-section="clients">Клиенты</button>
+              <button class="nav-link" data-section="reports">Отчёты</button>
+              <button class="nav-link" data-section="reports">Отчёты</button>
+          </aside>
+          <script src="/assets/app.js?v=37"></script>
+          PHP
+
+          cat > "$root/assets/app.js" <<'JS'
+          function systemUpdatesRenderProgress(rows) {
+              if (!rows.length) return;
+              const newestOperation = rows.at(0);
+              return newestOperation;
+          }
+          JS
+
+          (cd "$root" && php "$GITHUB_WORKSPACE/updates/installers/2026.08.02.5.php")
+          grep -q 'SYSTEM_UPDATE_MANIFEST_NO_CACHE_V180204' "$root/app/Services/SystemUpdateService.php"
+          grep -q 'SYSTEM_UPDATE_PROGRESS_SELECTION_V180205' "$root/assets/app.js"
+          grep -q 'NAV_RUNTIME_DEDUPE_V180204' "$root/assets/app.js"
+          test "$(grep -o 'data-section="clients"' "$root/index.php" | wc -l)" -eq 1
+          test "$(grep -o 'data-section="reports"' "$root/index.php" | wc -l)" -eq 1
+          grep -q '/assets/app.js?v=180205' "$root/index.php"
+          php -l "$root/app/Services/SystemUpdateService.php"
+          php -l "$root/index.php"
+
+          (cd "$root" && php "$GITHUB_WORKSPACE/updates/installers/2026.08.02.5.php")
+
+      - name: Verify manifest checksum
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          installer = Path('updates/installers/2026.08.02.5.php')
+          manifest = json.loads(Path('updates/manifest.json').read_text(encoding='utf-8'))
+          actual = hashlib.sha256(installer.read_bytes()).hexdigest()
+          expected = manifest['latest']['sha256']
+          if actual != expected:
+              raise SystemExit(f'Manifest mismatch: {actual} != {expected}')
+          print(f'installer_sha256={actual}')
+          PY
+
+      - name: Commit validated release
+        run: |
+          set -euo pipefail
+          git config user.name "release-builder"
+          git config user.email "release-builder@users.noreply.github.com"
+          git add \
+            updates/installers/2026.08.02.5.php \
+            updates/release.json \
+            updates/manifest.json
+          if git diff --cached --quiet; then
+            echo "Generated release is already current."
+            exit 0
+          fi
+          git commit -m "Rebuild and validate update 2026.08.02.5"
+          git push
