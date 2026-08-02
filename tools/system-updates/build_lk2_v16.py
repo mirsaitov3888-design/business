@@ -21,7 +21,9 @@ hashes = {
     for key, path in component_paths.items()
 }
 
-template = (component_root / "installer-template.php").read_text(encoding="utf-8")
+head = (component_root / "installer-head.phpfrag").read_text(encoding="utf-8")
+run = (component_root / "installer-run.phpfrag").read_text(encoding="utf-8")
+template = head.rstrip() + "\n" + run.lstrip()
 template = template.replace("__LK2_VERSION__", VERSION)
 template = template.replace(
     "__LK2_HASHES_JSON__",
