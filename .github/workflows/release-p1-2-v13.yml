@@ -1,11 +1,9 @@
 name: Build P1.2 v13 release
 
 on:
-  push:
+  pull_request:
     branches:
-      - release/p1-2-v13
-    paths:
-      - ".github/workflows/release-p1-2-v13.yml"
+      - main
 
 permissions:
   contents: write
@@ -19,7 +17,7 @@ jobs:
       - name: Checkout release branch
         uses: actions/checkout@v4
         with:
-          ref: release/p1-2-v13
+          ref: ${{ github.head_ref }}
 
       - name: Build checked installer
         shell: bash
@@ -85,7 +83,7 @@ jobs:
           print(f'installer_sha256={sha}')
           PY
 
-      - name: Commit release artifacts
+      - name: Commit release artifacts to PR branch
         shell: bash
         run: |
           set -euo pipefail
@@ -95,7 +93,9 @@ jobs:
             updates/installers/2026.08.02.13.php \
             updates/release.json \
             updates/manifest.json
+          if git diff --cached --quiet; then
+            echo "Release artifacts are already current."
+            exit 0
+          fi
           git commit -m "Build P1.2 v13 release artifacts"
-          git push origin HEAD:release/p1-2-v13
-
-# release trigger: 2026-08-02T20:43:00+08:00
+          git push origin HEAD:${{ github.head_ref }}
