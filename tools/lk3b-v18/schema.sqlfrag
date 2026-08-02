@@ -1,0 +1,67 @@
+
+-- LK3B_MULTISITE_AGGREGATION_SCHEMA_V180218
+CREATE TABLE IF NOT EXISTS project_source_snapshots (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    client_id BIGINT UNSIGNED NULL,
+    project_id BIGINT UNSIGNED NOT NULL,
+    site_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    source_type VARCHAR(50) NOT NULL,
+    external_id VARCHAR(190) NOT NULL,
+    date_from DATE NOT NULL,
+    date_to DATE NOT NULL,
+    comparison_date_from DATE NULL,
+    comparison_date_to DATE NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'success',
+    normalized_json LONGTEXT NULL,
+    error_text TEXT NULL,
+    fetched_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uniq_project_source_snapshot (
+        project_id,
+        source_type,
+        external_id,
+        date_from,
+        date_to,
+        comparison_date_from,
+        comparison_date_to
+    ),
+    KEY idx_project_source_snapshot_project (
+        project_id,
+        date_from,
+        date_to,
+        status
+    ),
+    KEY idx_project_source_snapshot_site (
+        site_id,
+        source_type,
+        fetched_at
+    )
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS direct_project_links (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    project_id BIGINT UNSIGNED NOT NULL,
+    site_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    client_login VARCHAR(190) NOT NULL DEFAULT '',
+    campaign_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    status VARCHAR(30) NOT NULL DEFAULT 'active',
+    match_method VARCHAR(30) NOT NULL DEFAULT 'manual',
+    settings_json MEDIUMTEXT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uniq_direct_project_link (
+        project_id,
+        site_id,
+        client_login,
+        campaign_id
+    ),
+    KEY idx_direct_project_status (project_id, status, campaign_id),
+    KEY idx_direct_project_site (site_id, status)
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
