@@ -1,0 +1,95 @@
+name: Publish P0.2
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/publish-p0-2.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  validate-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l updates/installers/2026.08.02.7.php
+          grep -q "WHEN role = 'admin' THEN 'administrator'" updates/installers/2026.08.02.7.php
+          grep -q "WHEN role = 'analyst' THEN 'manager'" updates/installers/2026.08.02.7.php
+          grep -q "WHEN role = 'viewer' THEN 'client'" updates/installers/2026.08.02.7.php
+          grep -q "CREATE TABLE.*users_before_role_normalization" updates/installers/2026.08.02.7.php
+          grep -q "enum_contraction_ready" updates/installers/2026.08.02.7.php
+          if grep -q "ALTER TABLE users.*ENUM" updates/installers/2026.08.02.7.php; then
+            echo "P0.2 must not contract the enum."
+            exit 1
+          fi
+
+      - name: Publish stable manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(sha256sum updates/installers/2026.08.02.7.php | cut -d' ' -f1)"
+          python3 - "$sha" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          sha = sys.argv[1]
+          changes = [
+              "Создаётся полная резервная таблица users перед изменением значений ролей",
+              "Старое значение admin переводится в administrator",
+              "Старое значение analyst переводится в manager",
+              "Старое значение viewer переводится в client",
+              "Неизвестные значения безопасно переводятся в client",
+              "Код портала сканируется на оставшиеся проверки старых ролей",
+              "Результат аудита сохраняется в storage/system-audits",
+              "Enum на этом этапе не сужается и будет изменён отдельным патчем P0.3",
+          ]
+          release = {
+              "version": "2026.08.02.7",
+              "title": "P0.2 — нормализация ролей и аудит кода",
+              "released_at": "2026-08-02",
+              "installer_path": "updates/installers/2026.08.02.7.php",
+              "changelog": changes,
+          }
+          manifest = {
+              "channel": "stable",
+              "latest": {
+                  "version": release["version"],
+                  "title": release["title"],
+                  "released_at": release["released_at"],
+                  "changelog": changes,
+                  "installer_url": "https://raw.githubusercontent.com/mirsaitov3888-design/business/main/updates/installers/2026.08.02.7.php",
+                  "sha256": sha,
+              },
+          }
+          Path("updates/release.json").write_text(
+              json.dumps(release, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          Path("updates/manifest.json").write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print(f"installer_sha256={sha}")
+          PY
+
+      - name: Commit release
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "release-builder"
+          git config user.email "release-builder@users.noreply.github.com"
+          git add updates/release.json updates/manifest.json
+          git commit -m "Publish P0.2 role normalization audit"
+          git push
