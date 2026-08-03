@@ -1,0 +1,78 @@
+
+/* PORTAL_UI_POPUP_FIX_V180321 */
+.b19-contact-card > input[type="checkbox"],
+.b19-project-card > input[type="checkbox"],
+.b19-primary-choice > input[type="radio"] {
+    appearance: auto !important;
+    width: 16px !important;
+    min-width: 16px !important;
+    max-width: 16px !important;
+    height: 16px !important;
+    min-height: 16px !important;
+    max-height: 16px !important;
+    flex: 0 0 16px !important;
+    padding: 0 !important;
+    margin: 2px 0 0 !important;
+    border-radius: 2px;
+}
+
+.b19-primary-choice > input[type="radio"] {
+    border-radius: 50%;
+}
+
+.b19-contact-card,
+.b19-project-card {
+    min-width: 0 !important;
+    overflow: hidden !important;
+}
+
+.b19-contact-main,
+.b19-project-card > span {
+    display: grid !important;
+    min-width: 0 !important;
+    width: auto !important;
+    flex: 1 1 auto !important;
+    gap: 4px !important;
+}
+
+.b19-contact-main strong,
+.b19-project-card strong,
+.b19-contact-main small,
+.b19-project-card small {
+    display: block !important;
+    width: auto !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+    color: #1d2939 !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    word-break: normal !important;
+}
+
+.b19-contact-main small,
+.b19-project-card small {
+    color: #667085 !important;
+    line-height: 1.4 !important;
+}
+
+.b19-contact-list,
+.b19-project-list {
+    overflow-x: hidden !important;
+}
+
+.b19-project-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.b19-primary-choice {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    white-space: nowrap !important;
+}
+
+@media (max-width: 760px) {
+    .b19-project-list {
+        grid-template-columns: 1fr !important;
+    }
+}
