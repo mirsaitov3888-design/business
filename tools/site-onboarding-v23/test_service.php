@@ -95,9 +95,21 @@ if (!in_array('https://existing.example', $updatedUrls, true)
 $site = $pdo->query(
     'SELECT * FROM project_sites WHERE id = ' . $siteId
 )->fetch(PDO::FETCH_ASSOC);
+$storedMetrika = is_array($site)
+    ? json_decode((string) ($site['metrika_counter_ids_json'] ?? ''), true)
+    : [];
+$storedMetrika = is_array($storedMetrika)
+    ? array_values(array_map('intval', $storedMetrika))
+    : [];
+$storedWebmaster = is_array($site)
+    ? json_decode((string) ($site['webmaster_host_ids_json'] ?? ''), true)
+    : [];
+$storedWebmaster = is_array($storedWebmaster)
+    ? array_values(array_map('strval', $storedWebmaster))
+    : [];
 if (!is_array($site)
-    || json_decode((string) $site['metrika_counter_ids_json'], true) !== [12345678, 87654321]
-    || json_decode((string) $site['webmaster_host_ids_json'], true) !== ['https:new-site.example:443']) {
+    || $storedMetrika !== [12345678, 87654321]
+    || $storedWebmaster !== ['https:new-site.example:443']) {
     throw new RuntimeException('Site tool identifiers were not saved.');
 }
 
