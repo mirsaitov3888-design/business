@@ -73,14 +73,14 @@ php -l "$root/app/Services/PortalRecoveryService.php"
 php -l "$root/bin/portal_recovery_v18.php"
 node --check "$root/assets/app.js"
 
-response="$((
+response="$(
   cd "$root"
   php -r '
     $_GET = ["action" => "client&client_id=10"];
     $_SERVER["REQUEST_METHOD"] = "GET";
     include "client-structure-api.php";
-  '
-) 2>/dev/null)"
+  ' 2>/dev/null
+)"
 printf '%s' "$response" | jq -e '.ok == true and .data.client.id == 10' >/dev/null
 
 RECOVERY_FIXTURE_ROOT="$root" php tools/recovery-v18/test_recovery.php
