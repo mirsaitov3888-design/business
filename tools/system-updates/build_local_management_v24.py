@@ -187,12 +187,25 @@ old_run_patch = block(
 )
 new_run_patch = r'''    $appJs = $appJsBefore;
     if (!str_contains($appJs, FINANCE_MENU_MARKER)) {
-        $p1Start = strpos($appJs, '/* P1_SALES_V180211 */');
-        $p1End = $p1Start === false
+        $p1Anchor = strpos($appJs, '/p1-api.php?action=');
+        if ($p1Anchor === false) {
+            $p1Anchor = strpos($appJs, 'p1-api.php?action=');
+        }
+        $p1Start = false;
+        if ($p1Anchor !== false) {
+            $prefix = substr($appJs, 0, $p1Anchor);
+            $p1Start = strrpos($prefix, "\n(() => {");
+            if ($p1Start !== false) {
+                $p1Start++;
+            } else {
+                $p1Start = strrpos($prefix, '(() => {');
+            }
+        }
+        $p1End = $p1Anchor === false
             ? false
-            : strpos($appJs, "\n})();", $p1Start);
-        if ($p1Start === false || $p1End === false) {
-            throw new RuntimeException('Не найден ограниченный блок P1 для исправления меню.');
+            : strpos($appJs, "\n})();", $p1Anchor);
+        if ($p1Start === false || $p1End === false || $p1Start >= $p1Anchor) {
+            throw new RuntimeException('Не найден ограниченный блок P1 по API-маркеру.');
         }
         $p1End += strlen("\n})();");
         $p1Segment = substr($appJs, $p1Start, $p1End - $p1Start);
