@@ -1,0 +1,222 @@
+
+$root = getcwd() ?: '';
+$paths = [
+    'service' => $root . '/app/Services/LocalBitrixLinkService.php',
+    'api' => $root . '/local-bitrix-links-api.php',
+    'onboarding' => $root . '/app/Services/Bitrix24ClientOnboardingService.php',
+    'app_js' => $root . '/assets/app.js',
+    'app_css' => $root . '/assets/app.css',
+    'index' => $root . '/index.php',
+];
+foreach ([
+    $root . '/app/bootstrap.php',
+    $root . '/app/Services/ClientStructureService.php',
+    $root . '/app/Services/Bitrix24ClientOnboardingService.php',
+    $root . '/assets/app.js',
+    $root . '/assets/app.css',
+    $root . '/index.php',
+] as $required) {
+    if (!is_file($required)) {
+        throw new RuntimeException('Не найден обязательный файл: ' . $required);
+    }
+}
+
+$appJsBefore = lb25read($paths['app_js']);
+if (!str_contains($appJsBefore, 'LOCAL_STRUCTURE_MANAGEMENT_V180324')) {
+    throw new RuntimeException(
+        'Версия ' . LOCAL_LINKS_VERSION . ' требует установленную 2026.08.03.24.'
+    );
+}
+
+$components = lb25payload();
+$tracked = [
+    'app/Services/LocalBitrixLinkService.php',
+    'local-bitrix-links-api.php',
+    'app/Services/Bitrix24ClientOnboardingService.php',
+    'assets/app.js',
+    'assets/app.css',
+    'index.php',
+];
+$backupDirectory = $root . '/storage/backups/local-bitrix-links-v25-'
+    . date('Ymd-His') . '-' . bin2hex(random_bytes(3));
+if (!mkdir($backupDirectory, 0700, true) && !is_dir($backupDirectory)) {
+    throw new RuntimeException('Не удалось создать резервную копию.');
+}
+$fileManifest = [];
+foreach ($tracked as $relative) {
+    $source = $root . '/' . $relative;
+    $fileManifest[$relative] = is_file($source);
+    if (!is_file($source)) {
+        continue;
+    }
+    $destination = $backupDirectory . '/' . $relative;
+    $directory = dirname($destination);
+    if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
+        throw new RuntimeException('Не удалось создать каталог резервной копии.');
+    }
+    if (!copy($source, $destination)) {
+        throw new RuntimeException('Не удалось сохранить файл: ' . $relative);
+    }
+}
+
+require_once $root . '/app/bootstrap.php';
+$pdo = \SeoAnalytics\Core\Database::pdo();
+$suffix = date('Ymd_His') . '_' . bin2hex(random_bytes(2));
+$tableBackups = [];
+$prefixes = [
+    'clients' => 'cl',
+    'client_bitrix_contacts' => 'cbc',
+    'client_bitrix_projects' => 'cbp',
+    'bitrix24_project_links' => 'bpl',
+];
+foreach ($prefixes as $table => $prefix) {
+    if (!lb25tableExists($pdo, $table)) {
+        continue;
+    }
+    $backup = $prefix . '_b25_' . $suffix;
+    $pdo->exec('CREATE TABLE `' . $backup . '` LIKE `' . $table . '`');
+    $pdo->exec('INSERT INTO `' . $backup . '` SELECT * FROM `' . $table . '`');
+    $tableBackups[$table] = $backup;
+}
+
+try {
+    lb25write($paths['service'], $components['service']);
+    lb25write($paths['api'], $components['api']);
+
+    $onboarding = lb25read($paths['onboarding']);
+    if (!str_contains($onboarding, LOCAL_LINKS_LOOKUP_MARKER)) {
+        $oldLookup = <<<'PHP'
+        $stmt = $this->pdo->prepare(
+            'SELECT project_id FROM bitrix24_project_links
+             WHERE bitrix_group_id = :group_id
+             ORDER BY id ASC LIMIT 1'
+        );
+PHP;
+        $newLookup = <<<'PHP'
+        // LOCAL_BITRIX_PROJECT_LOOKUP_V180325
+        $stmt = $this->pdo->prepare(
+            'SELECT bpl.project_id
+             FROM bitrix24_project_links bpl
+             INNER JOIN projects p ON p.id = bpl.project_id
+             WHERE bpl.bitrix_group_id = :group_id
+             ORDER BY bpl.id ASC LIMIT 1'
+        );
+PHP;
+        if (substr_count($onboarding, $oldLookup) !== 1) {
+            throw new RuntimeException('Не удалось усилить поиск локального проекта Bitrix24.');
+        }
+        $onboarding = str_replace($oldLookup, $newLookup, $onboarding);
+        $onboarding = str_replace(
+            'Эта компания Bitrix24 уже связана с другим клиентом портала.',
+            'Эта компания Bitrix24 уже связана с другим клиентом портала. Откройте «Локальные связи Bitrix24», чтобы увидеть и освободить локальную запись.',
+            $onboarding
+        );
+        $onboarding = str_replace(
+            '» уже связан с другим клиентом портала.',
+            '» уже связан с другим клиентом портала. Откройте «Локальные связи Bitrix24».',
+            $onboarding
+        );
+        lb25write($paths['onboarding'], $onboarding);
+    }
+
+    $orphanProjectLinks = 0;
+    if (lb25tableExists($pdo, 'bitrix24_project_links')) {
+        $orphanProjectLinks = $pdo->exec(
+            'DELETE bpl FROM bitrix24_project_links bpl
+             LEFT JOIN projects p ON p.id = bpl.project_id
+             WHERE p.id IS NULL'
+        );
+    }
+    $orphanClientProjects = 0;
+    if (lb25tableExists($pdo, 'client_bitrix_projects')) {
+        $orphanClientProjects = $pdo->exec(
+            'DELETE cbp FROM client_bitrix_projects cbp
+             LEFT JOIN projects p ON p.id = cbp.project_id
+             LEFT JOIN clients c ON c.id = cbp.client_id
+             WHERE p.id IS NULL OR c.id IS NULL'
+        );
+    }
+
+    $appJs = lb25read($paths['app_js']);
+    if (!str_contains($appJs, LOCAL_LINKS_MARKER)) {
+        $appJs = rtrim($appJs) . PHP_EOL . PHP_EOL
+            . trim($components['js']) . PHP_EOL;
+        lb25write($paths['app_js'], $appJs);
+    }
+    $appCss = lb25read($paths['app_css']);
+    if (!str_contains($appCss, LOCAL_LINKS_MARKER)) {
+        $appCss = rtrim($appCss) . PHP_EOL . PHP_EOL
+            . trim($components['css']) . PHP_EOL;
+        lb25write($paths['app_css'], $appCss);
+    }
+
+    $index = lb25read($paths['index']);
+    [$index, $cssCount] = lb25bustAsset($index, 'assets/app.css');
+    [$index, $jsCount] = lb25bustAsset($index, 'assets/app.js');
+    if ($cssCount < 1 || $jsCount < 1) {
+        throw new RuntimeException('Не удалось обновить версии ресурсов портала.');
+    }
+    lb25write($paths['index'], $index);
+
+    foreach ([$paths['service'], $paths['api'], $paths['onboarding'], $paths['index']] as $path) {
+        lb25lint($path);
+    }
+
+    if (function_exists('exec')) {
+        $probeOutput = [];
+        $probeCode = 0;
+        exec(
+            'node -e ' . escapeshellarg('const x = null; x?.a; const y = x ?? 1;') . ' 2>&1',
+            $probeOutput,
+            $probeCode
+        );
+        if ($probeCode === 0) {
+            $nodeOutput = [];
+            $nodeCode = 0;
+            exec('node --check ' . escapeshellarg($paths['app_js']) . ' 2>&1', $nodeOutput, $nodeCode);
+            if ($nodeCode !== 0) {
+                throw new RuntimeException('Ошибка JavaScript: ' . implode("\n", $nodeOutput));
+            }
+        } else {
+            lb25out('Проверка JavaScript через Node.js пропущена: серверная версия устарела.');
+        }
+    }
+
+    if (substr_count(lb25read($paths['app_js']), LOCAL_LINKS_MARKER) !== 1) {
+        throw new RuntimeException('JavaScript локальных связей подключён некорректно.');
+    }
+    if (substr_count(lb25read($paths['app_css']), LOCAL_LINKS_MARKER) !== 1) {
+        throw new RuntimeException('Стили локальных связей подключены некорректно.');
+    }
+    if (!str_contains(lb25read($paths['onboarding']), LOCAL_LINKS_LOOKUP_MARKER)) {
+        throw new RuntimeException('Защита от осиротевших связей не установлена.');
+    }
+
+    lb25out('Локальные связи Bitrix24 и форма проекта установлены.');
+    lb25out('- добавлен просмотр таблиц, где портал хранит внешние ID;');
+    lb25out('- добавлена локальная отвязка компании и проектов без изменения Bitrix24;');
+    lb25out('- форма «Добавить проект» заменена рабочей локальной формой;');
+    lb25out('- удалено осиротевших связей проектов: ' . (int) $orphanProjectLinks . ';');
+    lb25out('- удалено осиротевших выборов клиента: ' . (int) $orphanClientProjects . ';');
+    lb25out('- резервная копия: ' . $backupDirectory . '.');
+} catch (Throwable $exception) {
+    foreach ($fileManifest as $relative => $existed) {
+        $target = $root . '/' . $relative;
+        $backup = $backupDirectory . '/' . $relative;
+        if ($existed && is_file($backup)) {
+            @copy($backup, $target);
+        } elseif (!$existed && is_file($target)) {
+            @unlink($target);
+        }
+    }
+    foreach ($tableBackups as $table => $backup) {
+        try {
+            $pdo->exec('DELETE FROM `' . $table . '`');
+            $pdo->exec('INSERT INTO `' . $table . '` SELECT * FROM `' . $backup . '`');
+        } catch (Throwable) {
+        }
+    }
+    fwrite(STDERR, 'ОШИБКА: ' . $exception->getMessage() . PHP_EOL);
+    fwrite(STDERR, 'Файлы и локальные связи восстановлены из резервной копии.' . PHP_EOL);
+    exit(1);
+}
