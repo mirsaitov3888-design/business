@@ -7,7 +7,7 @@ on:
 
 jobs:
   validate:
-    if: github.head_ref == 'hotfix/ui-modal-cache-v20'
+    if: github.head_ref == 'hotfix/ui-modal-cache-v20-clean'
     runs-on: ubuntu-latest
     timeout-minutes: 40
 
@@ -29,7 +29,7 @@ jobs:
       - name: Checkout hotfix branch
         uses: actions/checkout@v4
         with:
-          ref: hotfix/ui-modal-cache-v20
+          ref: hotfix/ui-modal-cache-v20-clean
 
       - name: Prepare runtime
         shell: bash
