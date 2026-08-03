@@ -1,0 +1,50 @@
+name: Build user portal archive
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  archive:
+    if: github.head_ref == 'artifact/portal-snapshot-20260803'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout main snapshot
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Prepare portal archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/seo-analytics-portal
+          rsync -a --exclude='.git' --exclude='.github/workflows/build-user-portal-archive.yml' ./ /tmp/seo-analytics-portal/
+          cat > /tmp/seo-analytics-portal/PORTAL_SNAPSHOT_INFO.txt <<'EOF'
+          SEO Analytics portal source snapshot
+          Repository: mirsaitov3888-design/business
+          Branch: main
+          Snapshot date: 2026-08-03
+          Stable manifest at snapshot: 2026.08.03.25
+          Production-confirmed version at request time: 2026.08.03.24
+          Note: version 2026.08.03.25 was published and awaiting installation/acceptance at the time the archive was requested.
+          EOF
+          cd /tmp
+          zip -qr seo-analytics-portal-main-2026-08-03.zip seo-analytics-portal
+          sha256sum seo-analytics-portal-main-2026-08-03.zip > seo-analytics-portal-main-2026-08-03.zip.sha256
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: seo-analytics-portal-main-2026-08-03
+          path: |
+            /tmp/seo-analytics-portal-main-2026-08-03.zip
+            /tmp/seo-analytics-portal-main-2026-08-03.zip.sha256
+          if-no-files-found: error
+          retention-days: 7
