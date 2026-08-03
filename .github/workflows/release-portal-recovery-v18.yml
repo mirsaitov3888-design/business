@@ -1,0 +1,124 @@
+name: Build portal recovery v18 release
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: portal
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Prepare runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq php-mysql mysql-client jq
+          php -m | grep -q pdo_mysql
+
+      - name: Run full recovery integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/recovery-v18/run_ci.sh
+          php -l updates/installers/2026.08.03.18.php
+          grep -q "const PORTAL_RECOVERY_VERSION = '2026.08.03.18'" updates/installers/2026.08.03.18.php
+          grep -q 'PORTAL_RECOVERY_V18_CLIENT_ACTION' updates/installers/2026.08.03.18.php
+          grep -q 'PORTAL_RECOVERY_V18_SELECTED_SOURCE' updates/installers/2026.08.03.18.php
+
+      - name: Build release metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(sha256sum updates/installers/2026.08.03.18.php | cut -d' ' -f1)"
+          python3 - "$sha" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          sha = sys.argv[1]
+          changes = [
+              "Исправлены HTTP 404, «Неизвестное действие» и зависание карточки клиента",
+              "Сервер принимает старый формат запроса из уже закэшированного JavaScript",
+              "При загрузке старых разделов выбирается первый реально подключённый счётчик вместо counter_id=0",
+              "Выполняется инвентаризация projects, site_monitors и monitored_sites по домену сайта",
+              "Однозначно найденные ID Яндекс Метрики восстанавливаются в project_sites",
+              "Однозначно найденные ID Яндекс Вебмастера восстанавливаются в project_sites",
+              "Конфликтующие варианты не переносятся автоматически и фиксируются в аудите",
+              "Существующий конфиг Яндекс Директа привязывается только к единственному однозначному проекту",
+              "Создаётся JSON-аудит всех восстановленных, пропущенных и неоднозначных записей",
+              "Перед изменениями создаются резервные копии файлов, project_sites и project_source_links",
+              "Повторная установка и повторный CLI-запуск не создают дубли",
+              "index.php не изменяется, старая Node.js не вызывает ложный откат",
+              "Проверены MySQL 8.4, полный стек версий .15–.17, карточка клиента, Метрика, Вебмастер и Директ"
+          ]
+          release = {
+              "version": "2026.08.03.18",
+              "title": "Восстановление клиентов и подключений",
+              "released_at": "2026-08-03",
+              "installer_path": "updates/installers/2026.08.03.18.php",
+              "changelog": changes,
+          }
+          manifest = {
+              "channel": "stable",
+              "latest": {
+                  "version": release["version"],
+                  "title": release["title"],
+                  "released_at": release["released_at"],
+                  "changelog": changes,
+                  "installer_url": "https://raw.githubusercontent.com/mirsaitov3888-design/business/main/updates/installers/2026.08.03.18.php",
+                  "sha256": sha,
+              },
+          }
+          Path("updates/release.json").write_text(
+              json.dumps(release, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          Path("updates/manifest.json").write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print(f"installer_sha256={sha}")
+          PY
+
+      - name: Commit release artifacts to PR branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "release-builder"
+          git config user.email "release-builder@users.noreply.github.com"
+          git add \
+            updates/installers/2026.08.03.18.php \
+            updates/release.json \
+            updates/manifest.json
+          if git diff --cached --quiet; then
+            echo "Release artifacts are already current."
+            exit 0
+          fi
+          git commit -m "Build portal recovery v18 release artifacts"
+          git push origin HEAD:${{ github.head_ref }}
