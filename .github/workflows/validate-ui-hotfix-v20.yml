@@ -37,3 +37,5 @@ jobs:
       - name: Run UI hotfix integration
         shell: bash
         run: bash tools/ui-hotfix-v20/run_ci.sh
+
+# Rerun after restoring branch-only UI sources.
