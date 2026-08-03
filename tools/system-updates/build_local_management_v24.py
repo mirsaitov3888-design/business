@@ -107,8 +107,13 @@ new_init = r'''    async function init() {
         }
         window.__p1SalesInitialized = true;
         window.__p1SalesInitializing = false;
-        fillOptions();
-'''
+        fillOptions();'''
+
+if p1_source.count(old_navigation) != 1 or p1_source.count(old_init) != 1:
+    raise SystemExit("Canonical P1 source markers changed")
+p1_bundle = p1_source.replace(old_navigation, new_navigation, 1)
+p1_bundle = p1_bundle.replace(old_init, new_init, 1)
+p1_bundle = p1_bundle.replace("Продажи и экономика", "Финансы и экономика")
 
 nav_source = (root / "tools/navigation-v22/navigation-state.js").read_text(encoding="utf-8")
 old_nav_roots = block(
@@ -156,11 +161,7 @@ components: dict[str, bytes] = {
     "js": (component_root / "local-structure-admin.js").read_bytes(),
     "css": (component_root / "local-structure-admin.css").read_bytes(),
     "schema": (component_root / "schema.sqlfrag").read_bytes(),
-    "old_p1_navigation": old_navigation.encode(),
-    "new_p1_navigation": new_navigation.encode(),
-    "old_p1_init": old_init.encode(),
-    "new_p1_init": new_init.encode(),
-    "old_nav_roots": old_nav_roots.encode(),
+    "p1_bundle": p1_bundle.encode(),
     "new_nav_roots": new_nav_roots.encode(),
     "old_bitrix_call": old_bitrix_call.encode(),
     "new_bitrix_call": new_bitrix_call.encode(),
@@ -187,55 +188,20 @@ old_run_patch = block(
 )
 new_run_patch = r'''    $appJs = $appJsBefore;
     if (!str_contains($appJs, FINANCE_MENU_MARKER)) {
-        $p1Anchor = strpos($appJs, '/p1-api.php?action=');
-        if ($p1Anchor === false) {
-            $p1Anchor = strpos($appJs, 'p1-api.php?action=');
-        }
-        $p1Start = false;
-        if ($p1Anchor !== false) {
-            $prefix = substr($appJs, 0, $p1Anchor);
-            $p1Start = strrpos($prefix, "\n(() => {");
-            if ($p1Start !== false) {
-                $p1Start++;
-            } else {
-                $p1Start = strrpos($prefix, '(() => {');
-            }
-        }
-        $p1End = $p1Anchor === false
+        $p1BundleStart = strpos($appJs, '/* P1_SALES_BUNDLED_V180212 */');
+        $p1BundleEnd = $p1BundleStart === false
             ? false
-            : strpos($appJs, "\n})();", $p1Anchor);
-        if ($p1Start === false || $p1End === false || $p1Start >= $p1Anchor) {
-            throw new RuntimeException('Не найден ограниченный блок P1 по API-маркеру.');
+            : strpos($appJs, '/* P1_GOALS_BUNDLED_V180213 */', $p1BundleStart);
+        if ($p1BundleStart === false || $p1BundleEnd === false) {
+            throw new RuntimeException('Не найдены стабильные границы пакета финансов.');
         }
-        $p1End += strlen("\n})();");
-        $p1Segment = substr($appJs, $p1Start, $p1End - $p1Start);
-
-        $count = 0;
-        $p1Segment = preg_replace(
-            '#    function ensureNavigation\(\) \{.*?(?=    function ensureSection\(\) \{)#s',
-            $components['new_p1_navigation'],
-            $p1Segment,
-            1,
-            $count
-        );
-        if (!is_string($p1Segment) || $count !== 1) {
-            throw new RuntimeException('Не удалось исправить навигацию финансов внутри P1.');
-        }
-
-        $count = 0;
-        $p1Segment = preg_replace(
-            "#    async function init\\(\\) \\{.*?(?=        qs\\('#p1ProjectName'\\))#s",
-            $components['new_p1_init'],
-            $p1Segment,
-            1,
-            $count
-        );
-        if (!is_string($p1Segment) || $count !== 1) {
-            throw new RuntimeException('Не удалось исправить инициализацию финансов внутри P1.');
-        }
-        $appJs = substr($appJs, 0, $p1Start)
-            . $p1Segment
-            . substr($appJs, $p1End);
+        $p1Replacement = '/* P1_SALES_BUNDLED_V180212 */'
+            . PHP_EOL
+            . trim($components['p1_bundle'])
+            . PHP_EOL . PHP_EOL;
+        $appJs = substr($appJs, 0, $p1BundleStart)
+            . $p1Replacement
+            . substr($appJs, $p1BundleEnd);
 
         $navStart = strpos($appJs, '/* PORTAL_NAVIGATION_STATE_V180322 */');
         $navEnd = $navStart === false
