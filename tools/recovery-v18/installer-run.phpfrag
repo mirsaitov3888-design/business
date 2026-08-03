@@ -1,0 +1,273 @@
+
+$root = getcwd() ?: '';
+$required = [
+    $root . '/app/bootstrap.php',
+    $root . '/app/Services/ProjectSourceService.php',
+    $root . '/client-structure-api.php',
+    $root . '/assets/app.js',
+    $root . '/sql/schema.sql',
+];
+foreach ($required as $path) {
+    if (!is_file($path)) {
+        throw new RuntimeException('Не найден обязательный файл: ' . $path);
+    }
+}
+
+$appJsPath = $root . '/assets/app.js';
+$clientApiPath = $root . '/client-structure-api.php';
+$projectSourcePath = $root . '/app/Services/ProjectSourceService.php';
+$servicePath = $root . '/app/Services/PortalRecoveryService.php';
+$cliPath = $root . '/bin/portal_recovery_v18.php';
+
+if (!str_contains(recoveryRead($appJsPath), 'LK3_PROJECT_SOURCES_BUNDLED_V180217')) {
+    throw new RuntimeException(
+        'Версия ' . PORTAL_RECOVERY_VERSION
+        . ' требует установленный LK.3A / 2026.08.02.17.'
+    );
+}
+
+$components = recoveryPayload();
+$tracked = [
+    'client-structure-api.php',
+    'app/Services/ProjectSourceService.php',
+    'app/Services/PortalRecoveryService.php',
+    'bin/portal_recovery_v18.php',
+    'assets/app.js',
+];
+$backupDirectory = $root . '/storage/backups/portal-recovery-v18-'
+    . date('Ymd-His') . '-' . bin2hex(random_bytes(3));
+if (!mkdir($backupDirectory, 0700, true) && !is_dir($backupDirectory)) {
+    throw new RuntimeException('Не удалось создать резервную копию восстановления.');
+}
+
+$fileManifest = [];
+foreach ($tracked as $relative) {
+    $source = $root . '/' . $relative;
+    $fileManifest[$relative] = is_file($source);
+    if (!is_file($source)) {
+        continue;
+    }
+    $destination = $backupDirectory . '/' . $relative;
+    $directory = dirname($destination);
+    if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
+        throw new RuntimeException('Не удалось создать каталог резервной копии.');
+    }
+    if (!copy($source, $destination)) {
+        throw new RuntimeException('Не удалось сохранить резервную копию: ' . $relative);
+    }
+}
+
+require_once $root . '/app/bootstrap.php';
+$pdo = \SeoAnalytics\Core\Database::pdo();
+$suffix = date('Ymd_His') . '_' . bin2hex(random_bytes(2));
+$tableBackups = [];
+foreach (['project_sites', 'project_source_links'] as $table) {
+    if (!recoveryTableExists($pdo, $table)) {
+        continue;
+    }
+    $backupTable = $table . '_before_recovery_v18_' . $suffix;
+    $pdo->exec('CREATE TABLE `' . $backupTable . '` LIKE `' . $table . '`');
+    $pdo->exec('INSERT INTO `' . $backupTable . '` SELECT * FROM `' . $table . '`');
+    $tableBackups[$table] = $backupTable;
+}
+$auditExisted = recoveryTableExists($pdo, 'portal_recovery_audit');
+
+try {
+    recoveryWrite($servicePath, $components['service']);
+    recoveryWrite($cliPath, $components['cli']);
+
+    $clientApi = recoveryRead($clientApiPath);
+    if (!str_contains($clientApi, PORTAL_RECOVERY_API_MARKER)) {
+        $needle = "    $action = trim((string) ($_GET['action'] ?? 'context'));";
+        if (substr_count($clientApi, $needle) !== 1) {
+            throw new RuntimeException('Не найдена точка исправления действия карточки клиента.');
+        }
+        $replacement = <<<'PHPBLOCK'
+    $action = trim((string) ($_GET['action'] ?? 'context'));
+    // PORTAL_RECOVERY_V18_CLIENT_ACTION
+    if (preg_match('/^client&client_id=(\d+)$/', $action, $match) === 1) {
+        $_GET['client_id'] = (int) $match[1];
+        $action = 'client';
+    }
+PHPBLOCK;
+        $clientApi = str_replace($needle, $replacement, $clientApi);
+        recoveryWrite($clientApiPath, $clientApi);
+    }
+
+    $projectSource = recoveryRead($projectSourcePath);
+    if (!str_contains($projectSource, PORTAL_RECOVERY_PROJECT_MARKER)) {
+        $replacement = <<<'PHPBLOCK'
+    public function selectedLegacyProject(): array
+    {
+        // PORTAL_RECOVERY_V18_SELECTED_SOURCE
+        $context = $this->context(false);
+        $projects = $context['legacy_projects'] ?? [];
+        $base = $context['selected_project'] ?? null;
+        $sites = $context['sites'] ?? [];
+
+        if (!is_array($base) || (int) ($base['id'] ?? 0) <= 0) {
+            throw new RuntimeException('Выбранный проект не найден.');
+        }
+
+        $counterIds = [];
+        $hostIds = [];
+        $preferred = null;
+        $withAnySource = null;
+
+        foreach ($projects as $candidate) {
+            foreach (($candidate['metrika_counter_ids'] ?? []) as $counterId) {
+                $counterId = (int) $counterId;
+                if ($counterId > 0) {
+                    $counterIds[$counterId] = true;
+                }
+            }
+            $singleCounter = (int) ($candidate['counter_id'] ?? 0);
+            if ($singleCounter > 0) {
+                $counterIds[$singleCounter] = true;
+            }
+
+            foreach (($candidate['webmaster_host_ids'] ?? []) as $hostId) {
+                $hostId = trim((string) $hostId);
+                if ($hostId !== '') {
+                    $hostIds[$hostId] = true;
+                }
+            }
+            $singleHost = trim((string) (
+                $candidate['webmaster_host_id']
+                ?? $candidate['host_id']
+                ?? ''
+            ));
+            if ($singleHost !== '') {
+                $hostIds[$singleHost] = true;
+            }
+
+            if ($withAnySource === null && ($singleCounter > 0 || $singleHost !== '')) {
+                $withAnySource = $candidate;
+            }
+            if ($preferred === null && $singleCounter > 0) {
+                $preferred = $candidate;
+            }
+        }
+
+        $result = $preferred ?? $withAnySource ?? ($projects[0] ?? $base);
+        $counterIds = array_map('intval', array_keys($counterIds));
+        sort($counterIds, SORT_NUMERIC);
+        $hostIds = array_values(array_keys($hostIds));
+        sort($hostIds, SORT_STRING);
+
+        $result['counter_id'] = (int) ($result['counter_id'] ?? 0) > 0
+            ? (int) $result['counter_id']
+            : (int) ($counterIds[0] ?? 0);
+        $result['metrika_counter_ids'] = $counterIds;
+        $result['webmaster_host_id'] = trim((string) (
+            $result['webmaster_host_id']
+            ?? $result['host_id']
+            ?? ''
+        ));
+        if ($result['webmaster_host_id'] === '') {
+            $result['webmaster_host_id'] = (string) ($hostIds[0] ?? '');
+        }
+        $result['host_id'] = $result['webmaster_host_id'];
+        $result['webmaster_host_ids'] = $hostIds;
+        $result['project_sites'] = $sites;
+        $result['site_ids'] = array_values(array_map(
+            static fn(array $site): int => (int) ($site['id'] ?? 0),
+            $sites
+        ));
+        $result['__portal_context'] = true;
+
+        return $result;
+    }
+
+    public function legacyProjects
+PHPBLOCK;
+        $pattern = '#    public function selectedLegacyProject\(\): array\s*\{.*?\n    \}\n\n    public function legacyProjects#s';
+        $updated = preg_replace($pattern, $replacement, $projectSource, 1, $count);
+        if (!is_string($updated) || $count !== 1) {
+            throw new RuntimeException('Не удалось исправить выбор источника выбранного проекта.');
+        }
+        recoveryWrite($projectSourcePath, $updated);
+    }
+
+    $appJs = recoveryRead($appJsPath);
+    if (!str_contains($appJs, PORTAL_RECOVERY_JS_MARKER)) {
+        $appJs = rtrim($appJs) . PHP_EOL . PHP_EOL
+            . trim($components['js']) . PHP_EOL;
+        recoveryWrite($appJsPath, $appJs);
+    }
+
+    recoveryLint($clientApiPath);
+    recoveryLint($projectSourcePath);
+    recoveryLint($servicePath);
+    recoveryLint($cliPath);
+
+    if (function_exists('exec')) {
+        $probeOutput = [];
+        $probeCode = 0;
+        exec(
+            'node -e ' . escapeshellarg("const value = null; value?.x; const y = value ?? 1;") . ' 2>&1',
+            $probeOutput,
+            $probeCode
+        );
+        if ($probeCode === 0) {
+            $nodeOutput = [];
+            $nodeCode = 0;
+            exec('node --check ' . escapeshellarg($appJsPath) . ' 2>&1', $nodeOutput, $nodeCode);
+            if ($nodeCode !== 0) {
+                throw new RuntimeException('Ошибка JavaScript после восстановления: ' . implode("\n", $nodeOutput));
+            }
+        } else {
+            recoveryOut('Проверка JavaScript через Node.js пропущена: серверная версия Node.js устарела.');
+        }
+    }
+
+    if (substr_count(recoveryRead($appJsPath), PORTAL_RECOVERY_JS_MARKER) !== 1) {
+        throw new RuntimeException('JavaScript восстановления подключён некорректно.');
+    }
+
+    $report = (new \SeoAnalytics\Services\PortalRecoveryService($pdo, $root))->run();
+    $summary = $report['summary'] ?? [];
+
+    recoveryOut('Восстановление портала установлено.');
+    recoveryOut('- исправлена загрузка карточки клиента и HTTP 404;');
+    recoveryOut('- исправлен выбор первого сайта с подключённой Метрикой;');
+    recoveryOut('- сайтов проверено: ' . (int) ($summary['sites_scanned'] ?? 0) . ';');
+    recoveryOut('- сайтов обновлено: ' . (int) ($summary['sites_updated'] ?? 0) . ';');
+    recoveryOut('- ID Метрики восстановлено: ' . (int) ($summary['metrika_ids_restored'] ?? 0) . ';');
+    recoveryOut('- ID Вебмастера восстановлено: ' . (int) ($summary['webmaster_ids_restored'] ?? 0) . ';');
+    recoveryOut('- неоднозначных сайтов: ' . (int) ($summary['ambiguous_sites'] ?? 0) . ';');
+    recoveryOut('- Директ привязан к проекту: ' . (!empty($summary['direct_project_linked']) ? 'да' : 'нет') . ';');
+    recoveryOut('- аудит: storage/system-audits/portal-recovery-v18-latest.json;');
+    recoveryOut('- резервная копия файлов: ' . $backupDirectory . ';');
+    foreach ($tableBackups as $table => $backupTable) {
+        recoveryOut('- резервная таблица ' . $table . ': ' . $backupTable . ';');
+    }
+} catch (Throwable $exception) {
+    foreach ($fileManifest as $relative => $existed) {
+        $target = $root . '/' . $relative;
+        $backup = $backupDirectory . '/' . $relative;
+        if ($existed && is_file($backup)) {
+            @copy($backup, $target);
+        } elseif (!$existed && is_file($target)) {
+            @unlink($target);
+        }
+    }
+
+    foreach ($tableBackups as $table => $backupTable) {
+        try {
+            $pdo->exec('DELETE FROM `' . $table . '`');
+            $pdo->exec('INSERT INTO `' . $table . '` SELECT * FROM `' . $backupTable . '`');
+        } catch (Throwable) {
+        }
+    }
+    if (!$auditExisted && recoveryTableExists($pdo, 'portal_recovery_audit')) {
+        try {
+            $pdo->exec('DROP TABLE portal_recovery_audit');
+        } catch (Throwable) {
+        }
+    }
+
+    fwrite(STDERR, 'ОШИБКА: ' . $exception->getMessage() . PHP_EOL);
+    fwrite(STDERR, 'Файлы и данные восстановлены из резервных копий.' . PHP_EOL);
+    exit(1);
+}
