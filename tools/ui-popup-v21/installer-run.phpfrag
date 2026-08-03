@@ -1,0 +1,165 @@
+
+$root = getcwd() ?: '';
+$indexPath = $root . '/index.php';
+$appJsPath = $root . '/assets/app.js';
+$appCssPath = $root . '/assets/app.css';
+
+foreach ([$indexPath, $appJsPath, $appCssPath] as $path) {
+    if (!is_file($path)) {
+        throw new RuntimeException('Не найден обязательный файл: ' . $path);
+    }
+}
+
+$appJsBefore = ui21read($appJsPath);
+if (!str_contains($appJsBefore, 'PORTAL_UI_HOTFIX_V180320')) {
+    throw new RuntimeException(
+        'Версия ' . UI_POPUP_FIX_VERSION
+        . ' требует установленную 2026.08.03.20.'
+    );
+}
+
+$components = ui21payload();
+$backupDirectory = $root . '/storage/backups/ui-popup-v21-'
+    . date('Ymd-His') . '-' . bin2hex(random_bytes(3));
+if (!mkdir($backupDirectory, 0700, true) && !is_dir($backupDirectory)) {
+    throw new RuntimeException('Не удалось создать резервную копию popup-hotfix.');
+}
+
+$tracked = [
+    'index.php',
+    'assets/app.js',
+    'assets/app.css',
+];
+foreach ($tracked as $relative) {
+    $source = $root . '/' . $relative;
+    $destination = $backupDirectory . '/' . $relative;
+    $directory = dirname($destination);
+    if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
+        throw new RuntimeException('Не удалось создать каталог резервной копии.');
+    }
+    if (!copy($source, $destination)) {
+        throw new RuntimeException('Не удалось сохранить резервную копию: ' . $relative);
+    }
+}
+
+try {
+    $appJs = $appJsBefore;
+    $oldClose = "        if (action === 'close-modal') return closeModal();";
+    $newClose = <<<'JS'
+        if (action === 'close-modal') {
+            /* LK2_MODAL_DIRECT_CLOSE_V21 */
+            if (
+                target.classList.contains('lk2-modal-backdrop')
+                && event.target !== target
+            ) {
+                return;
+            }
+            return closeModal();
+        }
+JS;
+
+    if (!str_contains($appJs, 'LK2_MODAL_DIRECT_CLOSE_V21')) {
+        $count = substr_count($appJs, $oldClose);
+        if ($count !== 1) {
+            throw new RuntimeException(
+                'Не удалось однозначно найти обработчик закрытия LK.2: '
+                . $count
+            );
+        }
+        $appJs = str_replace($oldClose, $newClose, $appJs, $replaceCount);
+        if ($replaceCount !== 1) {
+            throw new RuntimeException('Не удалось заменить обработчик закрытия LK.2.');
+        }
+        ui21write($appJsPath, $appJs);
+    }
+
+    $appCss = ui21read($appCssPath);
+    if (!str_contains($appCss, UI_POPUP_FIX_MARKER)) {
+        $appCss = rtrim($appCss) . PHP_EOL . PHP_EOL
+            . trim($components['css']) . PHP_EOL;
+        ui21write($appCssPath, $appCss);
+    }
+
+    $index = ui21read($indexPath);
+    [$index, $cssCount] = ui21bustAsset($index, 'assets/app.css');
+    [$index, $jsCount] = ui21bustAsset($index, 'assets/app.js');
+    if ($cssCount <= 0 || $jsCount <= 0) {
+        throw new RuntimeException(
+            'Не удалось найти ссылки на assets/app.css и assets/app.js в index.php.'
+        );
+    }
+    ui21write($indexPath, $index);
+
+    ui21lint($indexPath);
+
+    if (function_exists('exec')) {
+        $probeOutput = [];
+        $probeCode = 0;
+        exec(
+            'node -e ' . escapeshellarg(
+                "const value = null; value?.x; const y = value ?? 1;"
+            ) . ' 2>&1',
+            $probeOutput,
+            $probeCode
+        );
+        if ($probeCode === 0) {
+            $nodeOutput = [];
+            $nodeCode = 0;
+            exec(
+                'node --check ' . escapeshellarg($appJsPath) . ' 2>&1',
+                $nodeOutput,
+                $nodeCode
+            );
+            if ($nodeCode !== 0) {
+                throw new RuntimeException(
+                    'Ошибка JavaScript popup-hotfix: ' . implode("\n", $nodeOutput)
+                );
+            }
+        } else {
+            ui21out(
+                'Проверка JavaScript через Node.js пропущена: '
+                . 'серверная версия Node.js устарела.'
+            );
+        }
+    }
+
+    $finalJs = ui21read($appJsPath);
+    $finalCss = ui21read($appCssPath);
+    $finalIndex = ui21read($indexPath);
+
+    if (substr_count($finalJs, 'LK2_MODAL_DIRECT_CLOSE_V21') !== 1) {
+        throw new RuntimeException('Обработчик модального окна LK.2 подключён некорректно.');
+    }
+    if (substr_count($finalCss, UI_POPUP_FIX_MARKER) !== 1) {
+        throw new RuntimeException('Стили popup-hotfix подключены некорректно.');
+    }
+    if (!str_contains($finalIndex, 'assets/app.css?v=' . UI_POPUP_FIX_ASSET_VERSION)) {
+        throw new RuntimeException('Версия app.css не обновлена.');
+    }
+    if (!str_contains($finalIndex, 'assets/app.js?v=' . UI_POPUP_FIX_ASSET_VERSION)) {
+        throw new RuntimeException('Версия app.js не обновлена.');
+    }
+    if (str_contains($finalJs, $oldClose)) {
+        throw new RuntimeException('Старый обработчик закрытия LK.2 остался в app.js.');
+    }
+
+    ui21out('Popup-hotfix установлен.');
+    ui21out('- названия контактов и проектов Bitrix24 снова видимы;');
+    ui21out('- чекбоксы и радиокнопки больше не растягивают карточки;');
+    ui21out('- описания проектов переносятся на несколько строк;');
+    ui21out('- окно «Добавить проект» не закрывается при клике по полям;');
+    ui21out('- закрытие LK.2 работает только по кнопке или прямому клику по фону;');
+    ui21out('- app.css и app.js получили версию ' . UI_POPUP_FIX_ASSET_VERSION . ';');
+    ui21out('- резервная копия: ' . $backupDirectory . '.');
+} catch (Throwable $exception) {
+    foreach ($tracked as $relative) {
+        $target = $root . '/' . $relative;
+        $backup = $backupDirectory . '/' . $relative;
+        if (is_file($backup)) {
+            @copy($backup, $target);
+        }
+    }
+    fwrite(STDERR, 'ОШИБКА: ' . $exception->getMessage() . PHP_EOL);
+    fwrite(STDERR, 'Файлы восстановлены из резервной копии.' . PHP_EOL);
+    exit(1);
+}
