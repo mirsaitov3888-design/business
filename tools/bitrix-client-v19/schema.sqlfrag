@@ -1,0 +1,41 @@
+
+-- BITRIX_CLIENT_ONBOARDING_SCHEMA_V180319
+CREATE TABLE IF NOT EXISTS client_bitrix_contacts (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    client_id BIGINT UNSIGNED NOT NULL,
+    bitrix_contact_id BIGINT UNSIGNED NOT NULL,
+    is_primary TINYINT(1) NOT NULL DEFAULT 0,
+    active TINYINT(1) NOT NULL DEFAULT 1,
+    name VARCHAR(255) NOT NULL,
+    phone VARCHAR(100) NULL,
+    email VARCHAR(255) NULL,
+    raw_json MEDIUMTEXT NULL,
+    synced_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uniq_client_bitrix_contact (client_id, bitrix_contact_id),
+    KEY idx_client_bitrix_contact_active (client_id, active, is_primary),
+    KEY idx_client_bitrix_contact_external (bitrix_contact_id)
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS client_bitrix_projects (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    client_id BIGINT UNSIGNED NOT NULL,
+    project_id BIGINT UNSIGNED NOT NULL,
+    bitrix_group_id BIGINT UNSIGNED NOT NULL,
+    bitrix_group_name VARCHAR(255) NOT NULL,
+    active TINYINT(1) NOT NULL DEFAULT 1,
+    synced_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uniq_client_bitrix_group (client_id, bitrix_group_id),
+    KEY idx_client_bitrix_project_active (client_id, active, bitrix_group_name),
+    KEY idx_client_bitrix_project_local (project_id),
+    KEY idx_client_bitrix_project_external (bitrix_group_id)
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;

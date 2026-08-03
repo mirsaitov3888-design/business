@@ -1,0 +1,264 @@
+
+$root = getcwd() ?: '';
+$required = [
+    $root . '/app/bootstrap.php',
+    $root . '/app/Services/ClientStructureService.php',
+    $root . '/app/Services/Bitrix24Client.php',
+    $root . '/app/Repositories/Bitrix24Repository.php',
+    $root . '/assets/app.js',
+    $root . '/assets/app.css',
+    $root . '/sql/schema.sql',
+];
+foreach ($required as $path) {
+    if (!is_file($path)) {
+        throw new RuntimeException('Не найден обязательный файл: ' . $path);
+    }
+}
+
+$appJsPath = $root . '/assets/app.js';
+$appCssPath = $root . '/assets/app.css';
+$schemaPath = $root . '/sql/schema.sql';
+$directoryPath = $root . '/app/Services/Bitrix24DirectoryService.php';
+$servicePath = $root . '/app/Services/Bitrix24ClientOnboardingService.php';
+$apiPath = $root . '/bitrix24-client-api.php';
+
+if (!str_contains(b19read($appJsPath), 'PORTAL_RECOVERY_V18')) {
+    throw new RuntimeException(
+        'Версия ' . BITRIX_CLIENT_VERSION
+        . ' требует установленное восстановление 2026.08.03.18.'
+    );
+}
+
+$components = b19payload();
+$tracked = [
+    'app/Services/Bitrix24DirectoryService.php',
+    'app/Services/Bitrix24ClientOnboardingService.php',
+    'bitrix24-client-api.php',
+    'assets/app.js',
+    'assets/app.css',
+    'sql/schema.sql',
+];
+$backupDirectory = $root . '/storage/backups/bitrix-client-v19-'
+    . date('Ymd-His') . '-' . bin2hex(random_bytes(3));
+if (!mkdir($backupDirectory, 0700, true) && !is_dir($backupDirectory)) {
+    throw new RuntimeException('Не удалось создать резервную копию Bitrix-first.');
+}
+
+$fileManifest = [];
+foreach ($tracked as $relative) {
+    $source = $root . '/' . $relative;
+    $fileManifest[$relative] = is_file($source);
+    if (!is_file($source)) {
+        continue;
+    }
+    $destination = $backupDirectory . '/' . $relative;
+    $directory = dirname($destination);
+    if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
+        throw new RuntimeException('Не удалось создать каталог резервной копии.');
+    }
+    if (!copy($source, $destination)) {
+        throw new RuntimeException('Не удалось сохранить резервную копию: ' . $relative);
+    }
+}
+
+require_once $root . '/app/bootstrap.php';
+$pdo = \SeoAnalytics\Core\Database::pdo();
+$suffix = date('Ymd_His') . '_' . bin2hex(random_bytes(2));
+$tableBackups = [];
+$tableExisted = [];
+foreach ([
+    'clients',
+    'project_client_links',
+    'bitrix24_project_links',
+    'client_bitrix_contacts',
+    'client_bitrix_projects',
+] as $table) {
+    $tableExisted[$table] = b19tableExists($pdo, $table);
+    if (!$tableExisted[$table]) {
+        continue;
+    }
+    $backupTable = $table . '_before_bitrix_client_v19_' . $suffix;
+    $pdo->exec('CREATE TABLE `' . $backupTable . '` LIKE `' . $table . '`');
+    $pdo->exec('INSERT INTO `' . $backupTable . '` SELECT * FROM `' . $table . '`');
+    $tableBackups[$table] = $backupTable;
+}
+
+$clientColumns = [
+    'bitrix_company_id' => 'BIGINT UNSIGNED NULL',
+    'bitrix_company_name' => 'VARCHAR(255) NULL',
+    'bitrix_company_snapshot_json' => 'MEDIUMTEXT NULL',
+    'bitrix_synced_at' => 'DATETIME NULL',
+];
+$columnExisted = [];
+foreach ($clientColumns as $column => $definition) {
+    $columnExisted[$column] = b19columnExists($pdo, 'clients', $column);
+}
+$indexExisted = b19indexExists(
+    $pdo,
+    'clients',
+    'idx_clients_bitrix_company'
+);
+
+try {
+    foreach ($clientColumns as $column => $definition) {
+        if (!$columnExisted[$column]) {
+            $pdo->exec(
+                'ALTER TABLE clients ADD COLUMN `'
+                . $column . '` ' . $definition
+            );
+        }
+    }
+    if (!$indexExisted) {
+        $pdo->exec(
+            'ALTER TABLE clients ADD KEY idx_clients_bitrix_company '
+            . '(bitrix_company_id)'
+        );
+    }
+
+    b19execSchema($pdo, $components['schema']);
+    b19write($directoryPath, $components['directory']);
+    b19write($servicePath, $components['service']);
+    b19write($apiPath, $components['api']);
+
+    $appJs = b19read($appJsPath);
+    if (!str_contains($appJs, BITRIX_CLIENT_JS_MARKER)) {
+        $appJs = rtrim($appJs) . PHP_EOL . PHP_EOL
+            . trim($components['js']) . PHP_EOL;
+        b19write($appJsPath, $appJs);
+    }
+
+    $appCss = b19read($appCssPath);
+    if (!str_contains($appCss, BITRIX_CLIENT_JS_MARKER)) {
+        $appCss = rtrim($appCss) . PHP_EOL . PHP_EOL
+            . trim($components['css']) . PHP_EOL;
+        b19write($appCssPath, $appCss);
+    }
+
+    $schema = b19read($schemaPath);
+    if (!str_contains($schema, BITRIX_CLIENT_SCHEMA_MARKER)) {
+        $schema = rtrim($schema) . PHP_EOL . PHP_EOL
+            . trim($components['schema']) . PHP_EOL;
+        b19write($schemaPath, $schema);
+    }
+
+    foreach ([$directoryPath, $servicePath, $apiPath] as $path) {
+        b19lint($path);
+    }
+
+    if (function_exists('exec')) {
+        $probeOutput = [];
+        $probeCode = 0;
+        exec(
+            'node -e ' . escapeshellarg(
+                "const value = null; value?.x; const y = value ?? 1;"
+            ) . ' 2>&1',
+            $probeOutput,
+            $probeCode
+        );
+        if ($probeCode === 0) {
+            $nodeOutput = [];
+            $nodeCode = 0;
+            exec(
+                'node --check ' . escapeshellarg($appJsPath) . ' 2>&1',
+                $nodeOutput,
+                $nodeCode
+            );
+            if ($nodeCode !== 0) {
+                throw new RuntimeException(
+                    'Ошибка JavaScript Bitrix-first: '
+                    . implode("\n", $nodeOutput)
+                );
+            }
+        } else {
+            b19out(
+                'Проверка JavaScript через Node.js пропущена: '
+                . 'серверная версия Node.js устарела.'
+            );
+        }
+    }
+
+    if (substr_count(b19read($appJsPath), BITRIX_CLIENT_JS_MARKER) !== 1) {
+        throw new RuntimeException('JavaScript Bitrix-first подключён некорректно.');
+    }
+    if (substr_count(b19read($appCssPath), BITRIX_CLIENT_JS_MARKER) !== 1) {
+        throw new RuntimeException('Стили Bitrix-first подключены некорректно.');
+    }
+    foreach (array_keys($clientColumns) as $column) {
+        if (!b19columnExists($pdo, 'clients', $column)) {
+            throw new RuntimeException('Не создано поле clients.' . $column);
+        }
+    }
+    foreach (['client_bitrix_contacts', 'client_bitrix_projects'] as $table) {
+        if (!b19tableExists($pdo, $table)) {
+            throw new RuntimeException('Не создана таблица ' . $table . '.');
+        }
+    }
+
+    $clientCount = (int) $pdo->query('SELECT COUNT(*) FROM clients')->fetchColumn();
+    $bitrixClientCount = (int) $pdo->query(
+        'SELECT COUNT(*) FROM clients WHERE bitrix_company_id IS NOT NULL'
+    )->fetchColumn();
+    $linkedProjectCount = b19tableExists($pdo, 'bitrix24_project_links')
+        ? (int) $pdo->query('SELECT COUNT(*) FROM bitrix24_project_links')->fetchColumn()
+        : 0;
+
+    b19out('Bitrix-first карточка клиента установлена.');
+    b19out('- компаний портала: ' . $clientCount . ';');
+    b19out('- компаний уже связанных с Bitrix24: ' . $bitrixClientCount . ';');
+    b19out('- проектов уже связанных с Bitrix24: ' . $linkedProjectCount . ';');
+    b19out('- создание клиента открывает каталог компаний Bitrix24;');
+    b19out('- контакты компании загружаются автоматически;');
+    b19out('- можно выбрать несколько проектов Bitrix24;');
+    b19out('- сайты и локальные настройки не удаляются при синхронизации;');
+    b19out('- резервная копия файлов: ' . $backupDirectory . ';');
+    foreach ($tableBackups as $table => $backupTable) {
+        b19out('- резервная таблица ' . $table . ': ' . $backupTable . ';');
+    }
+} catch (Throwable $exception) {
+    foreach ($fileManifest as $relative => $existed) {
+        $target = $root . '/' . $relative;
+        $backup = $backupDirectory . '/' . $relative;
+        if ($existed && is_file($backup)) {
+            @copy($backup, $target);
+        } elseif (!$existed && is_file($target)) {
+            @unlink($target);
+        }
+    }
+
+    foreach ($tableBackups as $table => $backupTable) {
+        try {
+            $pdo->exec('DELETE FROM `' . $table . '`');
+            $pdo->exec(
+                'INSERT INTO `' . $table . '` SELECT * FROM `'
+                . $backupTable . '`'
+            );
+        } catch (Throwable) {
+        }
+    }
+    foreach (['client_bitrix_contacts', 'client_bitrix_projects'] as $table) {
+        if (!($tableExisted[$table] ?? false) && b19tableExists($pdo, $table)) {
+            try {
+                $pdo->exec('DROP TABLE `' . $table . '`');
+            } catch (Throwable) {
+            }
+        }
+    }
+    if (!$indexExisted && b19indexExists($pdo, 'clients', 'idx_clients_bitrix_company')) {
+        try {
+            $pdo->exec('ALTER TABLE clients DROP INDEX idx_clients_bitrix_company');
+        } catch (Throwable) {
+        }
+    }
+    foreach (array_reverse(array_keys($clientColumns)) as $column) {
+        if (!($columnExisted[$column] ?? false) && b19columnExists($pdo, 'clients', $column)) {
+            try {
+                $pdo->exec('ALTER TABLE clients DROP COLUMN `' . $column . '`');
+            } catch (Throwable) {
+            }
+        }
+    }
+
+    fwrite(STDERR, 'ОШИБКА: ' . $exception->getMessage() . PHP_EOL);
+    fwrite(STDERR, 'Файлы и данные восстановлены из резервных копий.' . PHP_EOL);
+    exit(1);
+}
