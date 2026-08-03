@@ -10,6 +10,38 @@ clients_before="$(mysql -N -h127.0.0.1 -uroot -proot portal -e 'SELECT COUNT(*) 
 projects_before="$(mysql -N -h127.0.0.1 -uroot -proot portal -e 'SELECT COUNT(*) FROM projects')"
 sites_before="$(mysql -N -h127.0.0.1 -uroot -proot portal -e 'SELECT COUNT(*) FROM project_sites')"
 
+python3 - "$root/assets/app.js" <<'PY'
+from pathlib import Path
+import sys
+
+text = Path(sys.argv[1]).read_text(encoding='utf-8')
+needles = [
+    'p1-api.php',
+    'P1_SALES',
+    'p1-sales',
+    'function ensureNavigation()',
+    'async function init()',
+    'PORTAL_NAVIGATION_STATE_V180322',
+]
+print('P1 cumulative JavaScript anchors:')
+for needle in needles:
+    positions = []
+    start = 0
+    while True:
+        pos = text.find(needle, start)
+        if pos < 0:
+            break
+        positions.append(pos)
+        start = pos + len(needle)
+    print(f'- {needle}: count={len(positions)}, positions={positions[:12]}')
+for needle in ('p1-api.php', 'P1_SALES'):
+    pos = text.find(needle)
+    if pos >= 0:
+        fragment = text[max(0, pos - 180):pos + 260]
+        print(f'--- fragment around {needle} ---')
+        print(repr(fragment))
+PY
+
 python3 tools/system-updates/build_local_management_v24.py
 php -l updates/installers/2026.08.03.24.php
 grep -q "const LOCAL_MANAGEMENT_VERSION = '2026.08.03.24'" \
