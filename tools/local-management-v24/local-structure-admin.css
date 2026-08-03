@@ -1,0 +1,76 @@
+
+/* LOCAL_STRUCTURE_MANAGEMENT_V180324 */
+.lm24-modal {
+    max-width: 640px;
+}
+
+.lm24-modal header > div {
+    min-width: 0;
+}
+
+.lm24-local-label {
+    display: block;
+    margin-bottom: 5px;
+    color: #2563eb;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.lm24-warning,
+.lm24-danger {
+    padding: 13px 14px;
+    border-radius: 10px;
+    line-height: 1.45;
+}
+
+.lm24-warning {
+    border: 1px solid #bfdbfe;
+    background: #eff6ff;
+    color: #1e40af;
+}
+
+.lm24-danger {
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.lm24-message {
+    display: none;
+    padding: 11px 13px;
+    border-radius: 9px;
+}
+
+.lm24-message.is-loading,
+.lm24-message.is-success,
+.lm24-message.is-error {
+    display: block;
+}
+
+.lm24-message.is-loading {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.lm24-message.is-success {
+    background: #ecfdf3;
+    color: #047857;
+}
+
+.lm24-message.is-error {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.btn.btn-danger {
+    border-color: #dc2626;
+    background: #dc2626;
+    color: #fff;
+}
+
+.btn.btn-danger:hover {
+    border-color: #b91c1c;
+    background: #b91c1c;
+}
