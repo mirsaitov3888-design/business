@@ -10,7 +10,7 @@ foreach ([$indexPath, $appJsPath] as $path) {
 }
 
 $appJsBefore = nav22read($appJsPath);
-if (!str_contains($appJsBefore, 'PORTAL_UI_POPUP_FIX_V180321')) {
+if (!str_contains($appJsBefore, 'LK2_MODAL_DIRECT_CLOSE_V21')) {
     throw new RuntimeException(
         'Версия ' . NAVIGATION_STATE_VERSION
         . ' требует установленную 2026.08.03.21.'
