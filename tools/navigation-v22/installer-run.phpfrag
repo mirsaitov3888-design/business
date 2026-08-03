@@ -1,0 +1,133 @@
+
+$root = getcwd() ?: '';
+$indexPath = $root . '/index.php';
+$appJsPath = $root . '/assets/app.js';
+
+foreach ([$indexPath, $appJsPath] as $path) {
+    if (!is_file($path)) {
+        throw new RuntimeException('Не найден обязательный файл: ' . $path);
+    }
+}
+
+$appJsBefore = nav22read($appJsPath);
+if (!str_contains($appJsBefore, 'LK2_MODAL_DIRECT_CLOSE_V21')) {
+    throw new RuntimeException(
+        'Версия ' . NAVIGATION_STATE_VERSION
+        . ' требует установленную 2026.08.03.21.'
+    );
+}
+
+$navigationJs = nav22payload();
+$backupDirectory = $root . '/storage/backups/navigation-state-v22-'
+    . date('Ymd-His') . '-' . bin2hex(random_bytes(3));
+if (!mkdir($backupDirectory, 0700, true) && !is_dir($backupDirectory)) {
+    throw new RuntimeException('Не удалось создать резервную копию навигации.');
+}
+
+$tracked = [
+    'index.php',
+    'assets/app.js',
+];
+foreach ($tracked as $relative) {
+    $source = $root . '/' . $relative;
+    $destination = $backupDirectory . '/' . $relative;
+    $directory = dirname($destination);
+    if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
+        throw new RuntimeException('Не удалось создать каталог резервной копии.');
+    }
+    if (!copy($source, $destination)) {
+        throw new RuntimeException('Не удалось сохранить резервную копию: ' . $relative);
+    }
+}
+
+try {
+    $appJs = $appJsBefore;
+    if (!str_contains($appJs, NAVIGATION_STATE_MARKER)) {
+        $appJs = rtrim($appJs) . PHP_EOL . PHP_EOL
+            . trim($navigationJs) . PHP_EOL;
+        nav22write($appJsPath, $appJs);
+    }
+
+    $index = nav22read($indexPath);
+    [$index, $cssCount] = nav22bustAsset($index, 'assets/app.css');
+    [$index, $jsCount] = nav22bustAsset($index, 'assets/app.js');
+    if ($cssCount <= 0 || $jsCount <= 0) {
+        throw new RuntimeException(
+            'Не удалось найти ссылки на assets/app.css и assets/app.js в index.php.'
+        );
+    }
+    nav22write($indexPath, $index);
+    nav22lint($indexPath);
+
+    if (function_exists('exec')) {
+        $probeOutput = [];
+        $probeCode = 0;
+        exec(
+            'node -e ' . escapeshellarg(
+                "const value = null; value?.x; const y = value ?? 1;"
+            ) . ' 2>&1',
+            $probeOutput,
+            $probeCode
+        );
+        if ($probeCode === 0) {
+            $nodeOutput = [];
+            $nodeCode = 0;
+            exec(
+                'node --check ' . escapeshellarg($appJsPath) . ' 2>&1',
+                $nodeOutput,
+                $nodeCode
+            );
+            if ($nodeCode !== 0) {
+                throw new RuntimeException(
+                    'Ошибка JavaScript навигации: ' . implode("\n", $nodeOutput)
+                );
+            }
+        } else {
+            nav22out(
+                'Проверка JavaScript через Node.js пропущена: '
+                . 'серверная версия Node.js устарела.'
+            );
+        }
+    }
+
+    $finalJs = nav22read($appJsPath);
+    $finalIndex = nav22read($indexPath);
+    if (substr_count($finalJs, NAVIGATION_STATE_MARKER) !== 1) {
+        throw new RuntimeException('Контроллер навигации подключён некорректно.');
+    }
+    if (!str_contains($finalJs, 'seoAnalytics.activeSection.v22')) {
+        throw new RuntimeException('Не подключено сохранение текущего раздела.');
+    }
+    if (!str_contains($finalJs, 'Проекты Bitrix24 (${selected})')) {
+        throw new RuntimeException('Не подключён счётчик выбранных проектов.');
+    }
+    if (!str_contains($finalJs, "section: 'p1-sales'")) {
+        throw new RuntimeException('Не подключена обязательная ссылка продаж и экономики.');
+    }
+    if (!str_contains($finalIndex, 'assets/app.css?v=' . NAVIGATION_STATE_ASSET_VERSION)) {
+        throw new RuntimeException('Версия app.css не обновлена.');
+    }
+    if (!str_contains($finalIndex, 'assets/app.js?v=' . NAVIGATION_STATE_ASSET_VERSION)) {
+        throw new RuntimeException('Версия app.js не обновлена.');
+    }
+
+    nav22out('Единая навигация портала установлена.');
+    nav22out('- текущий раздел сохраняется после синхронизации и перезагрузки;');
+    nav22out('- активный раздел хранится в URL и локальном хранилище браузера;');
+    nav22out('- недостающие пункты основного меню восстанавливаются автоматически;');
+    nav22out('- дубли пунктов с одинаковым data-section удаляются;');
+    nav22out('- «Продажи и экономика» закреплены в едином реестре меню;');
+    nav22out('- в заголовке проектов Bitrix24 показывается количество выбранных;');
+    nav22out('- резервная копия файлов: ' . $backupDirectory . '.');
+} catch (Throwable $exception) {
+    foreach ($tracked as $relative) {
+        $backup = $backupDirectory . '/' . $relative;
+        $target = $root . '/' . $relative;
+        if (is_file($backup)) {
+            @copy($backup, $target);
+        }
+    }
+    fwrite(STDERR, 'ОШИБКА: ' . $exception->getMessage() . PHP_EOL);
+    fwrite(STDERR, 'Файлы восстановлены из резервной копии.' . PHP_EOL);
+    exit(1);
+}
