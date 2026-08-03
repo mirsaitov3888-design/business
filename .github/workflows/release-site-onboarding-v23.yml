@@ -49,8 +49,8 @@ jobs:
           php -l updates/installers/2026.08.03.23.php
           grep -q "const SITE_ONBOARDING_VERSION = '2026.08.03.23'" updates/installers/2026.08.03.23.php
           grep -q 'SITE_ONBOARDING_V180323' updates/installers/2026.08.03.23.php
-          grep -q 'crm.company.update' updates/installers/2026.08.03.23.php
-          grep -q 'yandex_direct' updates/installers/2026.08.03.23.php
+          grep -q 'crm.company.update' tools/site-onboarding-v23/SiteOnboardingService.php
+          grep -q 'yandex_direct' tools/site-onboarding-v23/SiteOnboardingService.php
 
       - name: Build release metadata
         shell: bash
