@@ -8,15 +8,17 @@ use RuntimeException;
 
 final class Bitrix24DirectoryService
 {
-    private Bitrix24Client $client;
+    private ?Bitrix24Client $client;
     private ?Closure $caller;
 
     public function __construct(
         ?Bitrix24Client $client = null,
         ?Closure $caller = null
     ) {
-        $this->client = $client ?? new Bitrix24Client();
         $this->caller = $caller;
+        $this->client = $caller instanceof Closure
+            ? $client
+            : ($client ?? new Bitrix24Client());
     }
 
     public function catalog(?int $companyId = null): array
@@ -35,7 +37,7 @@ final class Bitrix24DirectoryService
         }
 
         return [
-            'portal_host' => $this->client->portalHost(),
+            'portal_host' => $this->client?->portalHost() ?? 'test.bitrix24.local',
             'companies' => $companies,
             'projects' => $projects,
             'company' => $company,
@@ -363,6 +365,9 @@ final class Bitrix24DirectoryService
                 );
             }
             return $result;
+        }
+        if (!$this->client instanceof Bitrix24Client) {
+            throw new RuntimeException('Интеграция Bitrix24 не настроена.');
         }
         return $this->client->call($method, $params);
     }
