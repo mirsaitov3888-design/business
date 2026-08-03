@@ -1,6 +1,9 @@
 name: Validate portal UI hotfix v20
 
 on:
+  push:
+    branches:
+      - hotfix/ui-modal-cache-v20
   pull_request:
 
 jobs:
@@ -37,5 +40,3 @@ jobs:
       - name: Run UI hotfix integration
         shell: bash
         run: bash tools/ui-hotfix-v20/run_ci.sh
-
-# Validation trigger after PR #28 creation.
