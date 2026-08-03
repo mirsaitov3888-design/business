@@ -1,0 +1,211 @@
+
+$root = getcwd() ?: '';
+$paths = [
+    'index' => $root . '/index.php',
+    'app_js' => $root . '/assets/app.js',
+    'app_css' => $root . '/assets/app.css',
+    'schema' => $root . '/sql/schema.sql',
+    'bitrix_client' => $root . '/app/Services/Bitrix24Client.php',
+    'policy' => $root . '/app/Services/Bitrix24SafetyPolicy.php',
+    'service' => $root . '/app/Services/LocalStructureAdminService.php',
+    'api' => $root . '/local-structure-api.php',
+];
+foreach (['index', 'app_js', 'app_css', 'schema', 'bitrix_client'] as $key) {
+    if (!is_file($paths[$key])) {
+        throw new RuntimeException('Не найден обязательный файл: ' . $paths[$key]);
+    }
+}
+
+$appJsBefore = lm24read($paths['app_js']);
+if (!str_contains($appJsBefore, 'SITE_ONBOARDING_V180323')) {
+    throw new RuntimeException(
+        'Версия ' . LOCAL_MANAGEMENT_VERSION
+        . ' требует установленное обновление 2026.08.03.23.'
+    );
+}
+
+$components = lm24payload();
+$tracked = [
+    'index.php',
+    'assets/app.js',
+    'assets/app.css',
+    'sql/schema.sql',
+    'app/Services/Bitrix24Client.php',
+    'app/Services/Bitrix24SafetyPolicy.php',
+    'app/Services/LocalStructureAdminService.php',
+    'local-structure-api.php',
+];
+$backupDirectory = $root . '/storage/backups/local-management-v24-'
+    . date('Ymd-His') . '-' . bin2hex(random_bytes(3));
+if (!mkdir($backupDirectory, 0700, true) && !is_dir($backupDirectory)) {
+    throw new RuntimeException('Не удалось создать резервную копию локального управления.');
+}
+
+$fileManifest = [];
+foreach ($tracked as $relative) {
+    $source = $root . '/' . $relative;
+    $fileManifest[$relative] = is_file($source);
+    if (!is_file($source)) {
+        continue;
+    }
+    $destination = $backupDirectory . '/' . $relative;
+    $directory = dirname($destination);
+    if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
+        throw new RuntimeException('Не удалось создать каталог резервной копии.');
+    }
+    if (!copy($source, $destination)) {
+        throw new RuntimeException('Не удалось сохранить резервную копию: ' . $relative);
+    }
+}
+
+require_once $root . '/app/bootstrap.php';
+$pdo = \SeoAnalytics\Core\Database::pdo();
+$tableExisted = (int) $pdo->query(
+    'SELECT COUNT(*) FROM information_schema.TABLES '
+    . 'WHERE TABLE_SCHEMA = DATABASE() '
+    . 'AND TABLE_NAME = "local_structure_deletions"'
+)->fetchColumn() > 0;
+
+try {
+    lm24execSchema($pdo, $components['schema']);
+    lm24write($paths['policy'], $components['policy']);
+    lm24write($paths['service'], $components['service']);
+    lm24write($paths['api'], $components['api']);
+
+    $bitrixClient = lm24read($paths['bitrix_client']);
+    if (!str_contains($bitrixClient, 'Bitrix24SafetyPolicy::assertAllowed')) {
+        if (substr_count($bitrixClient, $components['old_bitrix_call']) !== 1) {
+            throw new RuntimeException('Не удалось подключить политику безопасности Bitrix24.');
+        }
+        $bitrixClient = str_replace(
+            $components['old_bitrix_call'],
+            $components['new_bitrix_call'],
+            $bitrixClient
+        );
+        lm24write($paths['bitrix_client'], $bitrixClient);
+    }
+
+    $appJs = $appJsBefore;
+    if (!str_contains($appJs, FINANCE_MENU_MARKER)) {
+        foreach ([
+            ['old_p1_navigation', 'new_p1_navigation', 'навигацию финансов'],
+            ['old_p1_init', 'new_p1_init', 'инициализацию финансов'],
+            ['old_nav_roots', 'new_nav_roots', 'выбор видимого меню'],
+        ] as [$oldKey, $newKey, $label]) {
+            if (substr_count($appJs, $components[$oldKey]) !== 1) {
+                throw new RuntimeException('Не удалось исправить ' . $label . '.');
+            }
+            $appJs = str_replace(
+                $components[$oldKey],
+                $components[$newKey],
+                $appJs
+            );
+        }
+    }
+    $appJs = str_replace('Продажи и экономика', 'Финансы и экономика', $appJs);
+    if (!str_contains($appJs, LOCAL_MANAGEMENT_MARKER)) {
+        $appJs = rtrim($appJs) . PHP_EOL . PHP_EOL
+            . trim($components['js']) . PHP_EOL;
+    }
+    lm24write($paths['app_js'], $appJs);
+
+    $appCss = lm24read($paths['app_css']);
+    if (!str_contains($appCss, LOCAL_MANAGEMENT_MARKER)) {
+        $appCss = rtrim($appCss) . PHP_EOL . PHP_EOL
+            . trim($components['css']) . PHP_EOL;
+        lm24write($paths['app_css'], $appCss);
+    }
+
+    $schema = lm24read($paths['schema']);
+    if (!str_contains($schema, LOCAL_MANAGEMENT_SCHEMA_MARKER)) {
+        $schema = rtrim($schema) . PHP_EOL . PHP_EOL
+            . trim($components['schema']) . PHP_EOL;
+        lm24write($paths['schema'], $schema);
+    }
+
+    $index = lm24read($paths['index']);
+    [$index, $cssCount] = lm24bustAsset($index, 'assets/app.css');
+    [$index, $jsCount] = lm24bustAsset($index, 'assets/app.js');
+    if ($cssCount <= 0 || $jsCount <= 0) {
+        throw new RuntimeException('Не найдены ссылки на основные ресурсы портала.');
+    }
+    lm24write($paths['index'], $index);
+
+    foreach ([
+        $paths['index'],
+        $paths['bitrix_client'],
+        $paths['policy'],
+        $paths['service'],
+        $paths['api'],
+    ] as $path) {
+        lm24lint($path);
+    }
+
+    if (function_exists('exec')) {
+        $probeOutput = [];
+        $probeCode = 0;
+        exec(
+            'node -e ' . escapeshellarg('const value = null; value?.x; const y = value ?? 1;') . ' 2>&1',
+            $probeOutput,
+            $probeCode
+        );
+        if ($probeCode === 0) {
+            $nodeOutput = [];
+            $nodeCode = 0;
+            exec('node --check ' . escapeshellarg($paths['app_js']) . ' 2>&1', $nodeOutput, $nodeCode);
+            if ($nodeCode !== 0) {
+                throw new RuntimeException('Ошибка JavaScript: ' . implode("\n", $nodeOutput));
+            }
+        } else {
+            lm24out('Проверка JavaScript через Node.js пропущена: серверная версия Node.js устарела.');
+        }
+    }
+
+    $finalJs = lm24read($paths['app_js']);
+    $finalIndex = lm24read($paths['index']);
+    $finalBitrix = lm24read($paths['bitrix_client']);
+    if (substr_count($finalJs, LOCAL_MANAGEMENT_MARKER) !== 1) {
+        throw new RuntimeException('Интерфейс локального управления подключён некорректно.');
+    }
+    if (substr_count($finalJs, FINANCE_MENU_MARKER) !== 1) {
+        throw new RuntimeException('Финансовый раздел не получил устойчивую инициализацию.');
+    }
+    if (!str_contains($finalJs, 'Финансы и экономика')) {
+        throw new RuntimeException('Пункт «Финансы и экономика» не закреплён.');
+    }
+    if (!str_contains($finalBitrix, 'Bitrix24SafetyPolicy::assertAllowed')) {
+        throw new RuntimeException('Политика запрета удалений Bitrix24 не подключена.');
+    }
+    if (!str_contains($finalIndex, 'assets/app.css?v=' . LOCAL_MANAGEMENT_ASSET_VERSION)
+        || !str_contains($finalIndex, 'assets/app.js?v=' . LOCAL_MANAGEMENT_ASSET_VERSION)) {
+        throw new RuntimeException('Версии ресурсов не обновлены.');
+    }
+
+    lm24out('Локальное управление структурой установлено.');
+    lm24out('- «Финансы и экономика» создаются до первого API-запроса и остаются в видимом меню;');
+    lm24out('- неуспешная ранняя загрузка API больше не отключает раздел навсегда;');
+    lm24out('- проект можно перенести к другому клиенту только в локальной базе;');
+    lm24out('- сайт и проект можно удалить только из портала с подтверждением названия;');
+    lm24out('- перед удалением сохраняется полный локальный JSON-аудит;');
+    lm24out('- любые delete/remove/recyclebin методы Bitrix24 блокируются до HTTP-запроса;');
+    lm24out('- резервная копия файлов: ' . $backupDirectory . '.');
+} catch (Throwable $exception) {
+    foreach ($fileManifest as $relative => $existed) {
+        $target = $root . '/' . $relative;
+        $backup = $backupDirectory . '/' . $relative;
+        if ($existed && is_file($backup)) {
+            @copy($backup, $target);
+        } elseif (!$existed && is_file($target)) {
+            @unlink($target);
+        }
+    }
+    if (!$tableExisted) {
+        try {
+            $pdo->exec('DROP TABLE IF EXISTS local_structure_deletions');
+        } catch (Throwable) {
+        }
+    }
+    fwrite(STDERR, 'ОШИБКА: ' . $exception->getMessage() . PHP_EOL);
+    fwrite(STDERR, 'Файлы восстановлены из резервной копии.' . PHP_EOL);
+    exit(1);
+}
