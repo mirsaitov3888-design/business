@@ -1,0 +1,127 @@
+name: Build site onboarding v23 release
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 58
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: portal
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Prepare runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq php-mysql mysql-client jq
+          php -m | grep -q pdo_mysql
+
+      - name: Run full site onboarding integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/site-onboarding-v23/run_ci.sh
+          php -l updates/installers/2026.08.03.23.php
+          grep -q "const SITE_ONBOARDING_VERSION = '2026.08.03.23'" updates/installers/2026.08.03.23.php
+          grep -q 'SITE_ONBOARDING_V180323' updates/installers/2026.08.03.23.php
+          grep -q 'crm.company.update' updates/installers/2026.08.03.23.php
+          grep -q 'yandex_direct' updates/installers/2026.08.03.23.php
+
+      - name: Build release metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(sha256sum updates/installers/2026.08.03.23.php | cut -d' ' -f1)"
+          python3 - "$sha" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          sha = sys.argv[1]
+          changes = [
+              "Создание и редактирование сайта выполняется в едином мастере подключения",
+              "Сайт можно выбрать из списка WEB-адресов компании Bitrix24",
+              "При ручном вводе нового URL он добавляется в поле WEB компании Bitrix24",
+              "Существующие адреса компании Bitrix24 при добавлении нового сайта не удаляются",
+              "Повторное сохранение существующего URL не создаёт дубль в Bitrix24",
+              "Для сайта в одном окне настраиваются счётчики Яндекс Метрики",
+              "Для сайта в одном окне настраиваются логин и кампании Яндекс Директа",
+              "Для сайта в одном окне настраиваются host ID Яндекс Вебмастера",
+              "Подключения сохраняются в общей базе на уровне конкретного сайта",
+              "Отключённый источник переводится в архив и не участвует в аналитике",
+              "Ошибка записи URL в Bitrix24 не удаляет локальный сайт и его подключения",
+              "Статус синхронизации с Bitrix24 возвращается в интерфейс отдельным сообщением",
+              "Версии app.css и app.js обновлены для загрузки нового мастера",
+              "Проверены полный стек до .22, MySQL 8.4, старая Node.js и три установки .23",
+              "Проверены сохранение Метрики, Директа, Вебмастера и защита от дублей"
+          ]
+          release = {
+              "version": "2026.08.03.23",
+              "title": "Единое создание сайта и подключение источников",
+              "released_at": "2026-08-03",
+              "installer_path": "updates/installers/2026.08.03.23.php",
+              "changelog": changes,
+          }
+          manifest = {
+              "channel": "stable",
+              "latest": {
+                  "version": release["version"],
+                  "title": release["title"],
+                  "released_at": release["released_at"],
+                  "changelog": changes,
+                  "installer_url": "https://raw.githubusercontent.com/mirsaitov3888-design/business/main/updates/installers/2026.08.03.23.php",
+                  "sha256": sha,
+              },
+          }
+          Path("updates/release.json").write_text(
+              json.dumps(release, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          Path("updates/manifest.json").write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print(f"installer_sha256={sha}")
+          PY
+
+      - name: Commit release artifacts to PR branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "release-builder"
+          git config user.email "release-builder@users.noreply.github.com"
+          git add \
+            updates/installers/2026.08.03.23.php \
+            updates/release.json \
+            updates/manifest.json
+          if git diff --cached --quiet; then
+            echo "Release artifacts are already current."
+            exit 0
+          fi
+          git commit -m "Build site onboarding v23 release artifacts"
+          git push origin HEAD:${{ github.head_ref }}
