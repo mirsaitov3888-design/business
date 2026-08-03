@@ -100,6 +100,25 @@ payload_sha = hashlib.sha256(payload_json).hexdigest()
 
 head = (component_root / "installer-head.phpfrag").read_text(encoding="utf-8")
 run = (component_root / "installer-run.phpfrag").read_text(encoding="utf-8")
+
+old_backup = """    $backupTable = $table . '_before_bitrix_client_v19_' . $suffix;
+    $pdo->exec('CREATE TABLE `' . $backupTable . '` LIKE `' . $table . '`');"""
+new_backup = """    $backupPrefixes = [
+        'clients' => 'cl',
+        'project_client_links' => 'pcl',
+        'bitrix24_project_links' => 'bpl',
+        'client_bitrix_contacts' => 'cbc',
+        'client_bitrix_projects' => 'cbp',
+    ];
+    $backupPrefix = $backupPrefixes[$table] ?? 'b19';
+    $backupTable = $backupPrefix . '_b19_' . $suffix;
+    $pdo->exec('CREATE TABLE `' . $backupTable . '` LIKE `' . $table . '`');"""
+if run.count(old_backup) != 1:
+    raise SystemExit(
+        f"backup table marker: expected 1, found {run.count(old_backup)}"
+    )
+run = run.replace(old_backup, new_backup, 1)
+
 installer = head.rstrip() + "\n" + run.lstrip()
 installer = installer.replace("__BITRIX_CLIENT_VERSION__", VERSION)
 installer = installer.replace("__BITRIX_CLIENT_PAYLOAD_B64__", payload_b64)
