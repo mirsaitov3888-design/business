@@ -1,0 +1,83 @@
+<?php
+declare(strict_types=1);
+
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit("Запустите через PHP CLI.\n");
+}
+
+const NAVIGATION_STATE_VERSION = '__NAVIGATION_STATE_VERSION__';
+const NAVIGATION_STATE_MARKER = 'PORTAL_NAVIGATION_STATE_V180322';
+const NAVIGATION_STATE_ASSET_VERSION = '2026080322';
+
+function nav22out(string $message = ''): void
+{
+    fwrite(STDOUT, $message . PHP_EOL);
+}
+
+function nav22read(string $path): string
+{
+    $content = file_get_contents($path);
+    if (!is_string($content)) {
+        throw new RuntimeException('Не удалось прочитать файл: ' . $path);
+    }
+    return $content;
+}
+
+function nav22write(string $path, string $content): void
+{
+    $temporary = $path . '.tmp.' . bin2hex(random_bytes(5));
+    if (file_put_contents($temporary, $content, LOCK_EX) === false) {
+        throw new RuntimeException('Не удалось записать временный файл: ' . $temporary);
+    }
+    if (!rename($temporary, $path)) {
+        @unlink($temporary);
+        throw new RuntimeException('Не удалось заменить файл: ' . $path);
+    }
+}
+
+function nav22lint(string $path): void
+{
+    if (!function_exists('exec')) {
+        return;
+    }
+    $output = [];
+    $code = 0;
+    exec(
+        escapeshellarg(PHP_BINARY) . ' -l ' . escapeshellarg($path) . ' 2>&1',
+        $output,
+        $code
+    );
+    if ($code !== 0) {
+        throw new RuntimeException(
+            'Ошибка PHP-синтаксиса в ' . $path . ':\n' . implode("\n", $output)
+        );
+    }
+}
+
+function nav22payload(): string
+{
+    $encoded = '__NAVIGATION_STATE_PAYLOAD_B64__';
+    $decoded = base64_decode($encoded, true);
+    if (!is_string($decoded) || hash('sha256', $decoded) !== '__NAVIGATION_STATE_PAYLOAD_SHA__') {
+        throw new RuntimeException('Повреждён пакет навигации.');
+    }
+    return $decoded;
+}
+
+function nav22bustAsset(string $content, string $asset): array
+{
+    $pattern = '#(' . preg_quote($asset, '#') . ')(?:\?[^"\'\s<>]*)?#i';
+    $updated = preg_replace_callback(
+        $pattern,
+        static fn(array $match): string =>
+            $match[1] . '?v=' . NAVIGATION_STATE_ASSET_VERSION,
+        $content,
+        -1,
+        $count
+    );
+    if (!is_string($updated)) {
+        throw new RuntimeException('Не удалось обновить версию ресурса ' . $asset . '.');
+    }
+    return [$updated, (int) $count];
+}
