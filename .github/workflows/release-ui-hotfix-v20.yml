@@ -1,0 +1,123 @@
+name: Build portal UI hotfix v20 release
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 42
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: portal
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Prepare runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq php-mysql mysql-client jq
+          php -m | grep -q pdo_mysql
+
+      - name: Run full UI hotfix integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/ui-hotfix-v20/run_ci.sh
+          php -l updates/installers/2026.08.03.20.php
+          grep -q "const UI_HOTFIX_VERSION = '2026.08.03.20'" updates/installers/2026.08.03.20.php
+          grep -q 'PORTAL_UI_HOTFIX_V180320' updates/installers/2026.08.03.20.php
+          grep -q 'UI_HOTFIX_ASSET_VERSION' updates/installers/2026.08.03.20.php
+
+      - name: Build release metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(sha256sum updates/installers/2026.08.03.20.php | cut -d' ' -f1)"
+          python3 - "$sha" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          sha = sys.argv[1]
+          changes = [
+              "Добавлено версионирование assets/app.css и assets/app.js для принудительной загрузки актуальных ресурсов",
+              "Старые query-параметры ресурсов заменяются на единый идентификатор версии",
+              "Добавлена runtime-страховка стилей на случай сохранённого браузером CSS-кэша",
+              "Кнопки раздела клиентов и Bitrix-first формы получили единое оформление",
+              "Клики по полям, спискам и текстовым областям больше не закрывают модальные окна",
+              "Модальные окна закрываются только по крестику, кнопке отмены или клику непосредственно по затемнённому фону",
+              "Исправлена зависимость старых окон LK.2 от inline onclick",
+              "Изменяются только index.php, assets/app.js и assets/app.css",
+              "Перед изменением создаётся полная резервная копия трёх файлов",
+              "Повторная установка не дублирует стили и обработчики",
+              "Старая версия Node.js не вызывает ложный откат",
+              "Проверены полный стек .15–.19, MySQL 8.4 и три последовательные установки .20"
+          ]
+          release = {
+              "version": "2026.08.03.20",
+              "title": "UI hotfix — стили, модальные окна и кэш",
+              "released_at": "2026-08-03",
+              "installer_path": "updates/installers/2026.08.03.20.php",
+              "changelog": changes,
+          }
+          manifest = {
+              "channel": "stable",
+              "latest": {
+                  "version": release["version"],
+                  "title": release["title"],
+                  "released_at": release["released_at"],
+                  "changelog": changes,
+                  "installer_url": "https://raw.githubusercontent.com/mirsaitov3888-design/business/main/updates/installers/2026.08.03.20.php",
+                  "sha256": sha,
+              },
+          }
+          Path("updates/release.json").write_text(
+              json.dumps(release, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          Path("updates/manifest.json").write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print(f"installer_sha256={sha}")
+          PY
+
+      - name: Commit release artifacts to PR branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "release-builder"
+          git config user.email "release-builder@users.noreply.github.com"
+          git add \
+            updates/installers/2026.08.03.20.php \
+            updates/release.json \
+            updates/manifest.json
+          if git diff --cached --quiet; then
+            echo "Release artifacts are already current."
+            exit 0
+          fi
+          git commit -m "Build portal UI hotfix v20 release artifacts"
+          git push origin HEAD:${{ github.head_ref }}
