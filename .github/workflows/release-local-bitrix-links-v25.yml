@@ -1,0 +1,127 @@
+name: Build local Bitrix links v25 release
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: portal
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Prepare runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq php-mysql mysql-client jq
+          php -m | grep -q pdo_mysql
+
+      - name: Run full local link integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/local-bitrix-links-v25/run_ci.sh
+          php -l updates/installers/2026.08.03.25.php
+          grep -q "const LOCAL_LINKS_VERSION = '2026.08.03.25'" updates/installers/2026.08.03.25.php
+          grep -q 'LOCAL_BITRIX_LINKS_V180325' updates/installers/2026.08.03.25.php
+          grep -q 'LOCAL_BITRIX_PROJECT_LOOKUP_V180325' updates/installers/2026.08.03.25.php
+
+      - name: Build release metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="$(sha256sum updates/installers/2026.08.03.25.php | cut -d' ' -f1)"
+          python3 - "$sha" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          sha = sys.argv[1]
+          changes = [
+              "Добавлено окно «Локальные связи Bitrix24» с отображением мест хранения внешних ID",
+              "Показываются связи компаний из clients.bitrix_company_id",
+              "Показываются связи контактов и проектов из client_bitrix_contacts, client_bitrix_projects и bitrix24_project_links",
+              "Связь компании можно освободить только в базе портала",
+              "Связь отдельного проекта можно удалить только из базы портала",
+              "Клиент, локальные проекты, сайты и их настройки при отвязке сохраняются",
+              "Компания, контакты, проекты, задачи и сайты в Bitrix24 не изменяются",
+              "Перед отвязкой требуется ввести точное название клиента или проекта",
+              "Перед операцией сохраняется JSON-аудит локальных связей",
+              "Осиротевшие mapping-записи без проекта или клиента удаляются при установке",
+              "Осиротевшая связь больше не блокирует повторное добавление проекта Bitrix24",
+              "Сообщение о конфликте указывает на окно локальных связей",
+              "Кнопка «Добавить проект» открывает новую рабочую локальную форму",
+              "Создание проекта из этой формы не создаёт и не меняет проект Bitrix24",
+              "Проверены полный стек до .24, MySQL 8.4, старая Node.js и три установки .25",
+              "Проверены конфликт ПроКрепежа, локальная отвязка, сохранение сайта, создание проекта и аудит"
+          ]
+          release = {
+              "version": "2026.08.03.25",
+              "title": "Локальные связи Bitrix24 и рабочая форма проекта",
+              "released_at": "2026-08-03",
+              "installer_path": "updates/installers/2026.08.03.25.php",
+              "changelog": changes,
+          }
+          manifest = {
+              "channel": "stable",
+              "latest": {
+                  "version": release["version"],
+                  "title": release["title"],
+                  "released_at": release["released_at"],
+                  "changelog": changes,
+                  "installer_url": "https://raw.githubusercontent.com/mirsaitov3888-design/business/main/updates/installers/2026.08.03.25.php",
+                  "sha256": sha,
+              },
+          }
+          Path("updates/release.json").write_text(
+              json.dumps(release, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          Path("updates/manifest.json").write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print(f"installer_sha256={sha}")
+          PY
+
+      - name: Commit release artifacts to PR branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "release-builder"
+          git config user.email "release-builder@users.noreply.github.com"
+          git add \
+            updates/installers/2026.08.03.25.php \
+            updates/release.json \
+            updates/manifest.json
+          if git diff --cached --quiet; then
+            echo "Release artifacts are already current."
+            exit 0
+          fi
+          git commit -m "Build local Bitrix links v25 release artifacts"
+          git push origin HEAD:${{ github.head_ref }}
