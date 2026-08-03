@@ -18,6 +18,14 @@ components = {
 payload: dict[str, dict[str, str]] = {}
 for key, path in components.items():
     raw = path.read_bytes()
+    if key == "cli":
+        old = b"dirname(__DIR__, 2)"
+        new = b"dirname(__DIR__)"
+        if raw.count(old) != 1:
+            raise SystemExit(
+                f"recovery CLI root marker: expected 1, found {raw.count(old)}"
+            )
+        raw = raw.replace(old, new, 1)
     payload[key] = {
         "sha256": hashlib.sha256(raw).hexdigest(),
         "content": base64.b64encode(raw).decode("ascii"),
