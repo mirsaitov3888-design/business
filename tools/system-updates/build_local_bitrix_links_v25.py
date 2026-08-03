@@ -9,8 +9,20 @@ VERSION = "2026.08.03.25"
 root = Path.cwd()
 component_root = root / "tools" / "local-bitrix-links-v25"
 
+service = (component_root / "LocalBitrixLinkService.php").read_text(encoding="utf-8")
+replacements = {
+    "p.status AS project_status": "p.lk_status AS project_status",
+    "created_by, created_at)": "user_id, created_at)",
+    ":created_by, NOW())": ":user_id, NOW())",
+    "'created_by' => $userId": "'user_id' => $userId",
+}
+for old, new in replacements.items():
+    if old not in service:
+        raise SystemExit(f"Local link service marker missing: {old}")
+    service = service.replace(old, new)
+
 components: dict[str, bytes] = {
-    "service": (component_root / "LocalBitrixLinkService.php").read_bytes(),
+    "service": service.encode("utf-8"),
     "api": (component_root / "local-bitrix-links-api.php").read_bytes(),
     "js": (component_root / "local-bitrix-links.js").read_bytes(),
     "css": (component_root / "local-bitrix-links.css").read_bytes(),
