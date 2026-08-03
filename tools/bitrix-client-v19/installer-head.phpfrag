@@ -1,0 +1,133 @@
+<?php
+declare(strict_types=1);
+
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit("Запустите через PHP CLI.\n");
+}
+
+const BITRIX_CLIENT_VERSION = '__BITRIX_CLIENT_VERSION__';
+const BITRIX_CLIENT_JS_MARKER = 'BITRIX_CLIENT_ONBOARDING_V180319';
+const BITRIX_CLIENT_SCHEMA_MARKER = 'BITRIX_CLIENT_ONBOARDING_SCHEMA_V180319';
+
+function b19out(string $message = ''): void
+{
+    fwrite(STDOUT, $message . PHP_EOL);
+}
+
+function b19read(string $path): string
+{
+    $content = file_get_contents($path);
+    if (!is_string($content)) {
+        throw new RuntimeException('Не удалось прочитать файл: ' . $path);
+    }
+    return $content;
+}
+
+function b19write(string $path, string $content): void
+{
+    $directory = dirname($path);
+    if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+        throw new RuntimeException('Не удалось создать каталог: ' . $directory);
+    }
+    $temporary = $path . '.tmp.' . bin2hex(random_bytes(5));
+    if (file_put_contents($temporary, $content, LOCK_EX) === false) {
+        throw new RuntimeException('Не удалось записать временный файл: ' . $temporary);
+    }
+    if (!rename($temporary, $path)) {
+        @unlink($temporary);
+        throw new RuntimeException('Не удалось заменить файл: ' . $path);
+    }
+}
+
+function b19lint(string $path): void
+{
+    if (!function_exists('exec')) {
+        return;
+    }
+    $output = [];
+    $code = 0;
+    exec(
+        escapeshellarg(PHP_BINARY) . ' -l ' . escapeshellarg($path) . ' 2>&1',
+        $output,
+        $code
+    );
+    if ($code !== 0) {
+        throw new RuntimeException(
+            'Ошибка PHP-синтаксиса в ' . $path . ':\n' . implode("\n", $output)
+        );
+    }
+}
+
+function b19tableExists(PDO $pdo, string $table): bool
+{
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*) FROM information_schema.TABLES '
+        . 'WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table_name'
+    );
+    $stmt->execute(['table_name' => $table]);
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+function b19columnExists(PDO $pdo, string $table, string $column): bool
+{
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*) FROM information_schema.COLUMNS '
+        . 'WHERE TABLE_SCHEMA = DATABASE() '
+        . 'AND TABLE_NAME = :table_name AND COLUMN_NAME = :column_name'
+    );
+    $stmt->execute([
+        'table_name' => $table,
+        'column_name' => $column,
+    ]);
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+function b19indexExists(PDO $pdo, string $table, string $index): bool
+{
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*) FROM information_schema.STATISTICS '
+        . 'WHERE TABLE_SCHEMA = DATABASE() '
+        . 'AND TABLE_NAME = :table_name AND INDEX_NAME = :index_name'
+    );
+    $stmt->execute([
+        'table_name' => $table,
+        'index_name' => $index,
+    ]);
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+function b19payload(): array
+{
+    $encoded = '__BITRIX_CLIENT_PAYLOAD_B64__';
+    $decoded = base64_decode($encoded, true);
+    if (!is_string($decoded) || hash('sha256', $decoded) !== '__BITRIX_CLIENT_PAYLOAD_SHA__') {
+        throw new RuntimeException('Повреждён пакет Bitrix-first карточки клиента.');
+    }
+    $payload = json_decode($decoded, true);
+    if (!is_array($payload)) {
+        throw new RuntimeException('Не удалось декодировать пакет Bitrix-first карточки клиента.');
+    }
+
+    $result = [];
+    foreach ($payload as $key => $item) {
+        $content = base64_decode((string) ($item['content'] ?? ''), true);
+        if (!is_string($content) || hash('sha256', $content) !== (string) ($item['sha256'] ?? '')) {
+            throw new RuntimeException('Повреждён компонент Bitrix-first: ' . $key);
+        }
+        $result[$key] = $content;
+    }
+    return $result;
+}
+
+function b19execSchema(PDO $pdo, string $schema): void
+{
+    $schema = preg_replace('/^\s*--.*$/m', '', $schema) ?? $schema;
+    $statements = preg_split('/;\s*(?:\r?\n|$)/', $schema) ?: [];
+    foreach ($statements as $statement) {
+        $statement = trim($statement);
+        if ($statement !== '') {
+            $pdo->exec($statement);
+        }
+    }
+}
