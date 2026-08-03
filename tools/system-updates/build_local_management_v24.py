@@ -107,7 +107,8 @@ new_init = r'''    async function init() {
         }
         window.__p1SalesInitialized = true;
         window.__p1SalesInitializing = false;
-        fillOptions();'''
+        fillOptions();
+'''
 
 nav_source = (root / "tools/navigation-v22/navigation-state.js").read_text(encoding="utf-8")
 old_nav_roots = block(
@@ -178,6 +179,87 @@ payload_sha = hashlib.sha256(payload_json).hexdigest()
 
 head = (component_root / "installer-head.phpfrag").read_text(encoding="utf-8")
 run = (component_root / "installer-run.phpfrag").read_text(encoding="utf-8")
+
+old_run_patch = block(
+    run,
+    "    $appJs = $appJsBefore;",
+    "    $appCss = lm24read($paths['app_css']);",
+)
+new_run_patch = r'''    $appJs = $appJsBefore;
+    if (!str_contains($appJs, FINANCE_MENU_MARKER)) {
+        $p1Start = strpos($appJs, '/* P1_SALES_V180211 */');
+        $p1End = $p1Start === false
+            ? false
+            : strpos($appJs, "\n})();", $p1Start);
+        if ($p1Start === false || $p1End === false) {
+            throw new RuntimeException('Не найден ограниченный блок P1 для исправления меню.');
+        }
+        $p1End += strlen("\n})();");
+        $p1Segment = substr($appJs, $p1Start, $p1End - $p1Start);
+
+        $count = 0;
+        $p1Segment = preg_replace(
+            '#    function ensureNavigation\(\) \{.*?(?=    function ensureSection\(\) \{)#s',
+            $components['new_p1_navigation'],
+            $p1Segment,
+            1,
+            $count
+        );
+        if (!is_string($p1Segment) || $count !== 1) {
+            throw new RuntimeException('Не удалось исправить навигацию финансов внутри P1.');
+        }
+
+        $count = 0;
+        $p1Segment = preg_replace(
+            "#    async function init\\(\\) \\{.*?(?=        qs\\('#p1ProjectName'\\))#s",
+            $components['new_p1_init'],
+            $p1Segment,
+            1,
+            $count
+        );
+        if (!is_string($p1Segment) || $count !== 1) {
+            throw new RuntimeException('Не удалось исправить инициализацию финансов внутри P1.');
+        }
+        $appJs = substr($appJs, 0, $p1Start)
+            . $p1Segment
+            . substr($appJs, $p1End);
+
+        $navStart = strpos($appJs, '/* PORTAL_NAVIGATION_STATE_V180322 */');
+        $navEnd = $navStart === false
+            ? false
+            : strpos($appJs, "\n})();", $navStart);
+        if ($navStart === false || $navEnd === false) {
+            throw new RuntimeException('Не найден ограниченный блок единой навигации.');
+        }
+        $navEnd += strlen("\n})();");
+        $navSegment = substr($appJs, $navStart, $navEnd - $navStart);
+        $count = 0;
+        $navSegment = preg_replace(
+            '#    function navigationRoots\(\) \{.*?(?=    function navigationRoot\(\) \{)#s',
+            $components['new_nav_roots'],
+            $navSegment,
+            1,
+            $count
+        );
+        if (!is_string($navSegment) || $count !== 1) {
+            throw new RuntimeException('Не удалось переключить навигацию на видимое меню.');
+        }
+        $appJs = substr($appJs, 0, $navStart)
+            . $navSegment
+            . substr($appJs, $navEnd);
+    }
+    $appJs = str_replace('Продажи и экономика', 'Финансы и экономика', $appJs);
+    if (!str_contains($appJs, LOCAL_MANAGEMENT_MARKER)) {
+        $appJs = rtrim($appJs) . PHP_EOL . PHP_EOL
+            . trim($components['js']) . PHP_EOL;
+    }
+    lm24write($paths['app_js'], $appJs);
+
+'''
+if old_run_patch not in run:
+    raise SystemExit("Installer app.js patch block changed")
+run = run.replace(old_run_patch, new_run_patch, 1)
+
 installer = head.rstrip() + "\n" + run.lstrip()
 installer = installer.replace("__LOCAL_MANAGEMENT_VERSION__", VERSION)
 installer = installer.replace("__LOCAL_MANAGEMENT_PAYLOAD_B64__", payload_b64)
