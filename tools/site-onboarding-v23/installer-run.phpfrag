@@ -1,0 +1,162 @@
+
+$root = getcwd() ?: '';
+$indexPath = $root . '/index.php';
+$appJsPath = $root . '/assets/app.js';
+$appCssPath = $root . '/assets/app.css';
+$servicePath = $root . '/app/Services/SiteOnboardingService.php';
+$apiPath = $root . '/site-onboarding-api.php';
+
+foreach ([$indexPath, $appJsPath, $appCssPath] as $path) {
+    if (!is_file($path)) {
+        throw new RuntimeException('Не найден обязательный файл: ' . $path);
+    }
+}
+
+$appJsBefore = so23read($appJsPath);
+if (!str_contains($appJsBefore, 'PORTAL_NAVIGATION_STATE_V180322')) {
+    throw new RuntimeException(
+        'Версия ' . SITE_ONBOARDING_VERSION
+        . ' требует установленную 2026.08.03.22.'
+    );
+}
+foreach ([
+    $root . '/app/Services/ClientStructureService.php',
+    $root . '/app/Services/PortalAccessService.php',
+    $root . '/app/Services/Bitrix24Client.php',
+] as $required) {
+    if (!is_file($required)) {
+        throw new RuntimeException('Не найден обязательный сервис: ' . $required);
+    }
+}
+
+$components = so23payload();
+$tracked = [
+    'index.php',
+    'assets/app.js',
+    'assets/app.css',
+    'app/Services/SiteOnboardingService.php',
+    'site-onboarding-api.php',
+];
+$backupDirectory = $root . '/storage/backups/site-onboarding-v23-'
+    . date('Ymd-His') . '-' . bin2hex(random_bytes(3));
+if (!mkdir($backupDirectory, 0700, true) && !is_dir($backupDirectory)) {
+    throw new RuntimeException('Не удалось создать резервную копию подключения сайта.');
+}
+$fileManifest = [];
+foreach ($tracked as $relative) {
+    $source = $root . '/' . $relative;
+    $fileManifest[$relative] = is_file($source);
+    if (!is_file($source)) {
+        continue;
+    }
+    $destination = $backupDirectory . '/' . $relative;
+    $directory = dirname($destination);
+    if (!is_dir($directory) && !mkdir($directory, 0700, true) && !is_dir($directory)) {
+        throw new RuntimeException('Не удалось создать каталог резервной копии.');
+    }
+    if (!copy($source, $destination)) {
+        throw new RuntimeException('Не удалось сохранить резервную копию: ' . $relative);
+    }
+}
+
+try {
+    so23write($servicePath, $components['service']);
+    so23write($apiPath, $components['api']);
+
+    $appJs = $appJsBefore;
+    if (!str_contains($appJs, SITE_ONBOARDING_MARKER)) {
+        $appJs = rtrim($appJs) . PHP_EOL . PHP_EOL
+            . trim($components['js']) . PHP_EOL;
+        so23write($appJsPath, $appJs);
+    }
+
+    $appCss = so23read($appCssPath);
+    if (!str_contains($appCss, SITE_ONBOARDING_MARKER)) {
+        $appCss = rtrim($appCss) . PHP_EOL . PHP_EOL
+            . trim($components['css']) . PHP_EOL;
+        so23write($appCssPath, $appCss);
+    }
+
+    $index = so23read($indexPath);
+    [$index, $cssCount] = so23bustAsset($index, 'assets/app.css');
+    [$index, $jsCount] = so23bustAsset($index, 'assets/app.js');
+    if ($cssCount <= 0 || $jsCount <= 0) {
+        throw new RuntimeException(
+            'Не удалось найти ссылки на assets/app.css и assets/app.js в index.php.'
+        );
+    }
+    so23write($indexPath, $index);
+
+    foreach ([$indexPath, $servicePath, $apiPath] as $path) {
+        so23lint($path);
+    }
+
+    if (function_exists('exec')) {
+        $probeOutput = [];
+        $probeCode = 0;
+        exec(
+            'node -e ' . escapeshellarg(
+                "const value = null; value?.x; const y = value ?? 1;"
+            ) . ' 2>&1',
+            $probeOutput,
+            $probeCode
+        );
+        if ($probeCode === 0) {
+            $nodeOutput = [];
+            $nodeCode = 0;
+            exec(
+                'node --check ' . escapeshellarg($appJsPath) . ' 2>&1',
+                $nodeOutput,
+                $nodeCode
+            );
+            if ($nodeCode !== 0) {
+                throw new RuntimeException(
+                    'Ошибка JavaScript подключения сайта: '
+                    . implode("\n", $nodeOutput)
+                );
+            }
+        } else {
+            so23out(
+                'Проверка JavaScript через Node.js пропущена: '
+                . 'серверная версия Node.js устарела.'
+            );
+        }
+    }
+
+    $finalJs = so23read($appJsPath);
+    $finalCss = so23read($appCssPath);
+    $finalIndex = so23read($indexPath);
+    if (substr_count($finalJs, SITE_ONBOARDING_MARKER) !== 1) {
+        throw new RuntimeException('JavaScript подключения сайта подключён некорректно.');
+    }
+    if (substr_count($finalCss, SITE_ONBOARDING_MARKER) !== 1) {
+        throw new RuntimeException('Стили подключения сайта подключены некорректно.');
+    }
+    if (!str_contains($finalIndex, 'assets/app.css?v=' . SITE_ONBOARDING_ASSET_VERSION)) {
+        throw new RuntimeException('Версия app.css не обновлена.');
+    }
+    if (!str_contains($finalIndex, 'assets/app.js?v=' . SITE_ONBOARDING_ASSET_VERSION)) {
+        throw new RuntimeException('Версия app.js не обновлена.');
+    }
+
+    so23out('Единое подключение сайта установлено.');
+    so23out('- сайт можно выбрать из списка URL компании Bitrix24;');
+    so23out('- новый URL автоматически добавляется в поле WEB компании;');
+    so23out('- Метрика, Директ и Вебмастер настраиваются в одном окне;');
+    so23out('- подключения сохраняются на уровне конкретного сайта;');
+    so23out('- ошибка записи в Bitrix24 не удаляет локально сохранённый сайт;');
+    so23out('- резервная копия файлов: ' . $backupDirectory . '.');
+} catch (Throwable $exception) {
+    foreach ($fileManifest as $relative => $existed) {
+        $target = $root . '/' . $relative;
+        $backup = $backupDirectory . '/' . $relative;
+        if ($existed && is_file($backup)) {
+            @copy($backup, $target);
+        } elseif (!$existed && is_file($target)) {
+            @unlink($target);
+        }
+    }
+    fwrite(STDERR, 'ОШИБКА: ' . $exception->getMessage() . PHP_EOL);
+    fwrite(STDERR, 'Файлы восстановлены из резервной копии.' . PHP_EOL);
+    exit(1);
+}
